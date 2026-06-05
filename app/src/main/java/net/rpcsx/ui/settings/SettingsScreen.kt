@@ -155,7 +155,7 @@ fun AdvancedSettingsScreen(
                     }
 
                     if (RPCSX.instance.getLibraryVersion(target.path) != null) {
-                        RpcsxUpdater.installUpdate(context, target)
+                        RpcsxUpdater.installUpdate(context, target, isCustom = true)
                     }
                 }
             }

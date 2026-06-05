@@ -59,6 +59,12 @@ object RpcsxUpdater {
     }
 
     suspend fun checkForUpdate(): String? {
+        // The user deliberately side-loaded a custom core; don't nag to replace it
+        // with a release build (which is frequently older than the custom one).
+        if (GeneralSettings["rpcsx_custom_library"] as? Boolean == true) {
+            return null
+        }
+
         val url = DevRpcsxChannel // TODO: update once RPCSX has release with android support
 
         val arch = getArch()
@@ -137,7 +143,12 @@ object RpcsxUpdater {
         return null
     }
 
-    fun installUpdate(context: Context, updateFile: File): Boolean {
+    fun installUpdate(context: Context, updateFile: File, isCustom: Boolean = false): Boolean {
+        // Remember whether this core was hand-installed by the user (side-loaded) vs
+        // pulled from the release channel, so the updater doesn't keep offering to
+        // "update" (downgrade) a deliberately side-loaded custom build.
+        GeneralSettings["rpcsx_custom_library"] = isCustom
+
         val restart = {
             val packageManager = context.packageManager
             val intent = packageManager.getLaunchIntentForPackage(context.packageName)

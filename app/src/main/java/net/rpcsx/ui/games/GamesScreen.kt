@@ -560,7 +560,7 @@ fun GamesScreen() {
                     FileUtil.saveFile(context, uri, target.path)
 
                     if (RPCSX.instance.getLibraryVersion(target.path) != null) {
-                        RpcsxUpdater.installUpdate(context, target)
+                        RpcsxUpdater.installUpdate(context, target, isCustom = true)
                     } else {
                         rpcsxInstallLibraryFailed = true
                     }
