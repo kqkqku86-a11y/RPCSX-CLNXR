@@ -747,6 +747,38 @@ fun SettingsScreen(
                     }
                 )
             }
+
+            item(key = "perf_overlay") {
+                var itemValue by remember {
+                    mutableStateOf(GeneralSettings["perf_overlay"] as Boolean? ?: false)
+                }
+                SwitchPreference(
+                    checked = itemValue,
+                    title = stringResource(R.string.enable_perf_overlay),
+                    subtitle = { PreferenceSubtitle(text = stringResource(R.string.perf_overlay_summary), maxLines = 3) },
+                    leadingIcon = null,
+                    onClick = { value ->
+                        val ok = try {
+                            RPCSX.instance.settingsSet(
+                                "Video@@Performance Overlay@@Enabled",
+                                if (value) "true" else "false"
+                            )
+                        } catch (e: Throwable) {
+                            false
+                        }
+                        if (ok) {
+                            GeneralSettings.setValue("perf_overlay", value)
+                            itemValue = value
+                        } else {
+                            Toast.makeText(
+                                context,
+                                context.getString(R.string.failed_to_assign_value, value.toString(), "Performance Overlay"),
+                                Toast.LENGTH_SHORT
+                            ).show()
+                        }
+                    }
+                )
+            }
         }
     }
 }

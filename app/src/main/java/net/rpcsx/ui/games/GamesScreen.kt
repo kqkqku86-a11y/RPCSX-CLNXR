@@ -162,6 +162,29 @@ fun GameItem(game: Game) {
                         }
                     }
                 )
+                DropdownMenuItem(
+                    text = { Text(stringResource(R.string.clear_cache)) },
+                    leadingIcon = { Icon(painter = painterResource(id = R.drawable.ic_delete), contentDescription = null) },
+                    onClick = {
+                        menuExpanded.value = false
+                        AlertDialogQueue.showDialog(
+                            title = context.getString(R.string.clear_cache),
+                            message = context.getString(R.string.clear_cache_description),
+                            onConfirm = {
+                                FileUtil.deleteCache(context, game.info.path.substringAfterLast("/")) { success ->
+                                    AlertDialogQueue.showDialog(
+                                        title = context.getString(if (success) R.string.clear_cache else R.string.unexpected_error),
+                                        message = context.getString(if (success) R.string.cache_cleared else R.string.failed_to_delete_game_cache),
+                                        confirmText = context.getString(R.string.close),
+                                        dismissText = ""
+                                    )
+                                }
+                            },
+                            confirmText = context.getString(R.string.clear_cache),
+                            dismissText = context.getString(R.string.close)
+                        )
+                    }
+                )
             }
         }
 
