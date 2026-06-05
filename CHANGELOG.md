@@ -3,6 +3,20 @@
 Changes on top of upstream `RPCSX/rpcsx-ui-android`. Developed with AI assistance (Claude).
 The emulator performance work lives in the companion [rpcsx core fork](https://github.com/Ouroboros420/rpcsx) — see its `CHANGELOG.md`.
 
+## v1.1.0
+
+### Features
+- **Performance Overlay toggle** (Settings) — turns the core's on-screen FPS / performance overlay on or off via `settingsSet("Video@@Performance Overlay@@Enabled", …)`.
+- **Per-game Clear Cache** — long-press a game in the library to clear just that title's cache (shader/PPU/SPU), with a confirmation and result dialog, instead of wiping everything.
+- **Video Decoder Trace Log toggle** (Settings → Share Log) — flips the core's `cellVdec` log level to `Trace` so movie/FMV decode hangs (e.g. the cellVdec stall some games hit) can be captured and diagnosed; resets to `Notice` when off.
+
+### Updater
+- **Accept pre-release builds** when checking for updates, so dev/test releases on the fork are offered.
+- **Fix the core version string** showing a stray `-null` architecture suffix.
+
+### UI
+- Shortened the Sustained Performance Mode description so it's fully visible.
+
 ## v1.0.0
 
 ### Features
