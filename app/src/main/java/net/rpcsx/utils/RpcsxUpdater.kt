@@ -59,15 +59,69 @@ object RpcsxUpdater {
 
     fun getAbi(): String = Build.SUPPORTED_64_BIT_ABIS[0]
 
+    // arm64 -march variants we may ship, ordered highest -> lowest capability.
+    private val ARCH_ORDER = listOf(
+        "armv9.1-a", "armv9-a", "armv8.5-a", "armv8.4-a", "armv8.2-a", "armv8.1-a", "armv8-a"
+    )
+
+    // Highest arch the device can safely run, inferred from /proc/cpuinfo HWCAP
+    // features. Conservative on purpose: an unknown device falls back to armv8-a,
+    // and we never auto-select armv9/SVE codegen (SIGILL risk if SVE is off at EL0).
+    //   atomics = LSE (8.1), asimddp = dotprod (8.2), uscat = LSE2 + flagm = FlagM (8.4)
+    fun detectMaxArch(): String {
+        val feats = runCatching {
+            File("/proc/cpuinfo").readLines()
+                .filter { it.trimStart().startsWith("Features") }
+                .joinToString(" ")
+        }.getOrDefault("")
+        fun has(f: String) = Regex("(^|\\s)$f(\\s|\$)").containsMatchIn(feats)
+        return when {
+            has("uscat") && has("flagm") -> "armv8.4-a"
+            has("asimddp") && has("atomics") -> "armv8.2-a"
+            has("atomics") -> "armv8.1-a"
+            else -> "armv8-a"
+        }
+    }
+
     fun getArch(): String {
         return when (getAbi()) {
             "x86_64" -> "x86-64"
-            else -> GeneralSettings["rpcsx_arch"] as? String ?: "armv8-a"
+            // Explicit user choice (manual picker) wins; otherwise auto-detect.
+            else -> GeneralSettings["rpcsx_arch"] as? String ?: detectMaxArch()
         }
     }
 
     fun setArch(arch: String) {
         GeneralSettings["rpcsx_arch"] = arch
+    }
+
+    private fun assetNameFor(arch: String) = "librpcsx-android-${getAbi()}-$arch.so"
+
+    // Pick the best release asset for this device: an explicit user-selected arch if
+    // that variant exists in the release, otherwise the highest shipped variant the
+    // device can run (<= detectMaxArch()), falling back down the chain. This lets us
+    // ship any subset of variants and still give every device the fastest one it can
+    // safely execute. Returns (arch, downloadUrl).
+    private fun selectArchAsset(release: GitHub.Release): Pair<String, String>? {
+        fun urlFor(arch: String): String? =
+            release.assets.find { it.name == assetNameFor(arch) }?.browser_download_url
+
+        if (getAbi() != "arm64-v8a") {
+            // Non-arm64 (x86-64): single-arch behavior.
+            val arch = getArch()
+            return urlFor(arch)?.let { arch to it }
+        }
+
+        // Explicit override from the manual picker, if that variant was shipped.
+        (GeneralSettings["rpcsx_arch"] as? String)?.let { userArch ->
+            urlFor(userArch)?.let { return userArch to it }
+        }
+
+        val maxIdx = ARCH_ORDER.indexOf(detectMaxArch()).let { if (it < 0) ARCH_ORDER.lastIndex else it }
+        for (i in maxIdx until ARCH_ORDER.size) {
+            urlFor(ARCH_ORDER[i])?.let { return ARCH_ORDER[i] to it }
+        }
+        return null
     }
 
     suspend fun checkForUpdate(): String? {
@@ -79,17 +133,14 @@ object RpcsxUpdater {
 
         val url = DevRpcsxChannel // TODO: update once RPCSX has release with android support
 
-        val arch = getArch()
         when (val fetchResult = GitHub.fetchLatestRelease(url)) {
             is GitHub.FetchResult.Success<*> -> {
                 val release = fetchResult.content as GitHub.Release
+                // Best variant this device can run that the release actually ships.
+                val (arch, _) = selectArchAsset(release) ?: return null
                 // Normalize the tag the same way as the installed version so a clean
                 // release tag and a "Draft+"-decorated local build compare equal.
                 val releaseVersion = "v" + normalizeVersion(release.name.removePrefix("v")) + "-" + arch
-
-                if (release.assets.find { it.name == "librpcsx-android-${getAbi()}-${arch}.so" }?.browser_download_url == null) {
-                    return null
-                }
 
                 if (RPCSX.activeLibrary.value == null) {
                     return releaseVersion
@@ -109,15 +160,15 @@ object RpcsxUpdater {
 
     suspend fun downloadUpdate(destinationDir: File, progressCallback: (Long, Long) -> Unit): File? {
         val url = DevRpcsxChannel // TODO: GeneralSettings["rpcsx_channel"] as String
-        val arch = getArch()
 
         when (val fetchResult = GitHub.fetchLatestRelease(url)) {
             is GitHub.FetchResult.Success<*> -> {
                 val release = fetchResult.content as GitHub.Release
+                // Same variant the update check offered.
+                val (arch, downloadUrl) = selectArchAsset(release) ?: return null
                 val releaseVersion = "v" + normalizeVersion(release.name.removePrefix("v")) + "-" + arch
-                val releaseAsset = release.assets.find { it.name == "librpcsx-android-${getAbi()}-$arch.so" }
 
-                if (releaseVersion != getCurrentVersion() && releaseAsset?.browser_download_url != null) {
+                if (releaseVersion != getCurrentVersion()) {
                     val target = File(destinationDir, "librpcsx-android_${arch}_${release.name}.so")
 
                     if (target.exists()) {
@@ -137,7 +188,7 @@ object RpcsxUpdater {
 
                     tmp.deleteOnExit()
 
-                    when (val downloadStatus = GitHub.downloadAsset(releaseAsset.browser_download_url, tmp, progressCallback)) {
+                    when (val downloadStatus = GitHub.downloadAsset(downloadUrl, tmp, progressCallback)) {
                         is GitHub.DownloadStatus.Success -> {
                             withContext(Dispatchers.IO) {
                                 tmp.renameTo(target)
