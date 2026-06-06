@@ -120,6 +120,7 @@
     <string name="enable_perf_overlay">Performance Overlay</string>
     <string name="perf_overlay_summary">Show an on-screen FPS / performance overlay while a game runs. Applies on next game launch.</string>
     <string name="clear_cache">Clear Cache</string>
+    <string name="configure">Configure</string>
     <string name="clear_cache_description">Delete this game\'s shader/PPU cache. The game stays installed and will recompile on the next launch. Use this if it started glitching after an update.</string>
     <string name="cache_cleared">Cache cleared. The game will recompile on next launch.</string>
     <string name="users">Users</string>

@@ -84,7 +84,10 @@ import net.rpcsx.ui.channels.ReleaseRpcsxChannel
 import net.rpcsx.ui.channels.ReleaseUiChannel
 import net.rpcsx.ui.channels.UpdateChannelListScreen
 import net.rpcsx.ui.channels.UpdateChannelsScreen
+import net.rpcsx.Game
 import net.rpcsx.ui.patches.PatchManagerScreen
+import net.rpcsx.ui.settings.PerGameConfigScreen
+import net.rpcsx.utils.PerGameConfigRepository
 import net.rpcsx.ui.channels.channelToUiText
 import net.rpcsx.ui.channels.channelsToUiText
 import net.rpcsx.ui.channels.uiTextToChannel
@@ -202,7 +205,12 @@ fun AppNavHost() {
         ) {
             GamesDestination(
                 navigateToSettings = { navigateTo("settings") },
-                drawerState
+                drawerState,
+                navigateToConfig = { game ->
+                    val serial = PerGameConfigRepository.serialOf(game.info.path)
+                    val name = game.info.name.value ?: serial
+                    navigateTo("game_config/${Uri.encode(serial)}/${Uri.encode(name)}")
+                }
             )
         }
 
@@ -293,6 +301,18 @@ fun AppNavHost() {
         ) {
             PatchManagerScreen(
                 navigateBack = navController::navigateUp,
+            )
+        }
+
+        composable(
+            route = "game_config/{serial}/{name}"
+        ) { backStackEntry ->
+            val serial = Uri.decode(backStackEntry.arguments?.getString("serial").orEmpty())
+            val name = Uri.decode(backStackEntry.arguments?.getString("name").orEmpty())
+            PerGameConfigScreen(
+                serial = serial,
+                gameName = name,
+                navigateBack = navController::navigateUp
             )
         }
 
@@ -493,7 +513,8 @@ fun AppNavHost() {
 @Composable
 fun GamesDestination(
     navigateToSettings: () -> Unit,
-    drawerState: androidx.compose.material3.DrawerState
+    drawerState: androidx.compose.material3.DrawerState,
+    navigateToConfig: (Game) -> Unit = {}
 ) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
@@ -742,7 +763,7 @@ fun GamesDestination(
             floatingActionButton = {
                 DropUpFloatingActionButton(installPkgLauncher, gameFolderPickerLauncher)
             },
-        ) { innerPadding -> Column(modifier = Modifier.padding(innerPadding)) { GamesScreen() } }
+        ) { innerPadding -> Column(modifier = Modifier.padding(innerPadding)) { GamesScreen(navigateToConfig = navigateToConfig) } }
     }
 }
 

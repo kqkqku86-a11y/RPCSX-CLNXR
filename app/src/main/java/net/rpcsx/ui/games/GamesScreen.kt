@@ -86,7 +86,7 @@ private fun withAlpha(color: Color, alpha: Float): Color {
 
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
-fun GameItem(game: Game) {
+fun GameItem(game: Game, onConfigure: () -> Unit = {}) {
     val context = LocalContext.current
     val menuExpanded = remember { mutableStateOf(false) }
     val iconExists = remember { mutableStateOf(false) }
@@ -133,6 +133,14 @@ fun GameItem(game: Game) {
         DropdownMenu(
             expanded = menuExpanded.value, onDismissRequest = { menuExpanded.value = false }) {
             if (game.progressList.isEmpty()) {
+                DropdownMenuItem(
+                    text = { Text(stringResource(R.string.configure)) },
+                    leadingIcon = { Icon(painter = painterResource(id = R.drawable.ic_build), contentDescription = null) },
+                    onClick = {
+                        menuExpanded.value = false
+                        onConfigure()
+                    }
+                )
                 DropdownMenuItem(
                     text = { Text(stringResource(R.string.delete)) },
                     leadingIcon = { Icon(painter = painterResource(id = R.drawable.ic_delete), contentDescription = null) },
@@ -369,7 +377,7 @@ fun GameItem(game: Game) {
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun GamesScreen() {
+fun GamesScreen(navigateToConfig: (Game) -> Unit = {}) {
     val context = LocalContext.current
     val games = remember { GameRepository.list() }
     val isRefreshing by remember { GameRepository.isRefreshing }
@@ -618,7 +626,7 @@ fun GamesScreen() {
             modifier = Modifier.fillMaxSize()
         ) {
             items(count = games.size, key = { index -> games[index].info.path }) { index ->
-                GameItem(games[index])
+                GameItem(games[index], onConfigure = { navigateToConfig(games[index]) })
             }
         }
     }
