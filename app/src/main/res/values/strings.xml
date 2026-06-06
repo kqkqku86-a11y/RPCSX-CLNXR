@@ -90,6 +90,11 @@
     <string name="active_user">Active User</string>
     <string name="advanced_settings">Advanced Settings</string>
     <string name="advanced_settings_description">Configure emulator advanced settings</string>
+    <string name="settings_category_general">General</string>
+    <string name="settings_category_emulation">Emulation</string>
+    <string name="settings_category_diagnostics">Diagnostics</string>
+    <string name="patch_manager">Patch Manager</string>
+    <string name="patch_manager_description">Download and enable game patches</string>
     <string name="ask_if_reset_key">"Do you want to reset '%1$s' to its default value?"</string>
     <string name="controls">Controls</string>
     <string name="controls_description">Configure controller</string>

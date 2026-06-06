@@ -587,8 +587,8 @@ fun SettingsScreen(
                 .fillMaxSize()
                 .padding(contentPadding),
         ) {
-            item {
-                Spacer(modifier = Modifier.height(16.dp))
+            item(key = "hdr_general") {
+                PreferenceHeader(text = stringResource(R.string.settings_category_general))
             }
 
             item(
@@ -633,6 +633,10 @@ fun SettingsScreen(
                         navigateTo("update_channels")
                     }
                 )
+            }
+
+            item(key = "hdr_emulation") {
+                PreferenceHeader(text = stringResource(R.string.settings_category_emulation))
             }
 
             item(key = "advanced_settings") {
@@ -692,11 +696,15 @@ fun SettingsScreen(
 
             item(key = "patch_manager") {
                 HomePreference(
-                    title = "Patch Manager",
+                    title = stringResource(R.string.patch_manager),
                     icon = { PreferenceIcon(icon = painterResource(R.drawable.ic_build)) },
-                    description = "Download and enable game patches",
+                    description = stringResource(R.string.patch_manager_description),
                     onClick = { navigateTo("patch_manager") }
                 )
+            }
+
+            item(key = "hdr_diagnostics") {
+                PreferenceHeader(text = stringResource(R.string.settings_category_diagnostics))
             }
 
             item(key = "share_logs") {
