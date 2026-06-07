@@ -154,7 +154,7 @@ fun GameItem(game: Game, onConfigure: () -> Unit = {}) {
                             path.deleteRecursively()
                             FileUtil.deleteCache(
                                 context,
-                                game.info.path.substringAfterLast("/")
+                                game.info.path.trimEnd('/').substringAfterLast("/")
                             ) { success ->
                                 if (!success) {
                                     AlertDialogQueue.showDialog(
@@ -179,7 +179,7 @@ fun GameItem(game: Game, onConfigure: () -> Unit = {}) {
                             title = context.getString(R.string.clear_cache),
                             message = context.getString(R.string.clear_cache_description),
                             onConfirm = {
-                                FileUtil.deleteCache(context, game.info.path.substringAfterLast("/")) { success ->
+                                FileUtil.deleteCache(context, game.info.path.trimEnd('/').substringAfterLast("/")) { success ->
                                     AlertDialogQueue.showDialog(
                                         title = context.getString(if (success) R.string.clear_cache else R.string.unexpected_error),
                                         message = context.getString(if (success) R.string.cache_cleared else R.string.failed_to_delete_game_cache),

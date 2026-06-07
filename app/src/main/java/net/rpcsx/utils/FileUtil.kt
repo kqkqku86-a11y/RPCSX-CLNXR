@@ -228,9 +228,18 @@ object FileUtil {
 
     fun deleteCache(ctx: Context, gameId: String, onComplete: (Boolean) -> Unit) {
         CoroutineScope(Dispatchers.IO).launch {
-            val result = File(ctx.getExternalFilesDir(null)!!, "cache/cache/$gameId").deleteRecursively()
+            // The core caches a game under cache/cache/<title_id>/ (PPU/SPU/shaders).
+            val dir = File(ctx.getExternalFilesDir(null)!!, "cache/cache/${gameId.trim('/')}")
+            val existed = dir.isDirectory
+            // deleteRecursively() returns true even for a missing dir, so gate on
+            // existence to report honestly ("nothing was there" vs "deleted").
+            val deleted = existed && dir.deleteRecursively()
+            android.util.Log.i(
+                "FileUtil",
+                "deleteCache id='$gameId' path='${dir.absolutePath}' existed=$existed deleted=$deleted"
+            )
             withContext(Dispatchers.Main) {
-                onComplete(result)
+                onComplete(deleted)
             }
         }
     }
