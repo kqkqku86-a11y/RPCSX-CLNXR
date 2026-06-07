@@ -22,6 +22,7 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -59,6 +60,7 @@ fun PatchManagerScreen(navigateBack: () -> Unit) {
     var patches by remember { mutableStateOf<List<Patch>>(emptyList()) }
     var busy by remember { mutableStateOf(false) }
     var loading by remember { mutableStateOf(true) }
+    var query by remember { mutableStateOf("") }
 
     fun refresh() {
         scope.launch {
@@ -71,6 +73,18 @@ fun PatchManagerScreen(navigateBack: () -> Unit) {
     }
 
     LaunchedEffect(Unit) { refresh() }
+
+    // Match against name, author, notes and the game serials (e.g. NPUA70092).
+    val filteredPatches = remember(patches, query) {
+        val q = query.trim()
+        if (q.isEmpty()) patches
+        else patches.filter { p ->
+            p.name.contains(q, ignoreCase = true) ||
+                p.author.contains(q, ignoreCase = true) ||
+                p.notes.contains(q, ignoreCase = true) ||
+                p.serials.any { it.contains(q, ignoreCase = true) }
+        }
+    }
 
     val importLauncher = rememberLauncherForActivityResult(
         ActivityResultContracts.OpenDocument()
@@ -165,6 +179,26 @@ fun PatchManagerScreen(navigateBack: () -> Unit) {
                         Spacer(Modifier.width(8.dp))
                         Text("Import patch file")
                     }
+
+                    if (patches.isNotEmpty()) {
+                        OutlinedTextField(
+                            value = query,
+                            onValueChange = { query = it },
+                            modifier = Modifier.fillMaxWidth(),
+                            singleLine = true,
+                            label = { Text("Search game, serial (e.g. NPUA70092) or author") },
+                            leadingIcon = {
+                                Icon(painterResource(R.drawable.ic_search), contentDescription = null)
+                            },
+                            trailingIcon = {
+                                if (query.isNotEmpty()) {
+                                    IconButton(onClick = { query = "" }) {
+                                        Icon(painterResource(R.drawable.ic_close), contentDescription = "Clear")
+                                    }
+                                }
+                            }
+                        )
+                    }
                 }
             }
 
@@ -197,8 +231,17 @@ fun PatchManagerScreen(navigateBack: () -> Unit) {
                         )
                     }
                 }
+            } else if (filteredPatches.isEmpty()) {
+                item(key = "no_match") {
+                    Text(
+                        text = "No patches match \"$query\".",
+                        style = MaterialTheme.typography.bodyLarge,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.padding(horizontal = 20.dp, vertical = 16.dp)
+                    )
+                }
             } else {
-                items(patches, key = { it.hash + "/" + it.name }) { patch ->
+                items(filteredPatches, key = { it.hash + "/" + it.name }) { patch ->
                     HomeSwitchPreference(
                         title = patch.name.ifEmpty { "(unnamed patch)" },
                         description = patchSubtitle(patch),
