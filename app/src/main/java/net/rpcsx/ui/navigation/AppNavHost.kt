@@ -32,6 +32,7 @@ import androidx.compose.material3.DrawerValue
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.ExtendedFloatingActionButton
 import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
@@ -791,25 +792,32 @@ fun DropUpFloatingActionButton(
                     animationSpec = tween(200, easing = FastOutSlowInEasing)
                 )
             ) {
-                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    FloatingActionButton(
+                Column(
+                    verticalArrangement = Arrangement.spacedBy(8.dp),
+                    horizontalAlignment = androidx.compose.ui.Alignment.End
+                ) {
+                    ExtendedFloatingActionButton(
                         onClick = { installPkgLauncher.launch("*/*"); expanded = false },
-                        containerColor = MaterialTheme.colorScheme.secondary
-                    ) {
-                        Icon(
-                            painter = painterResource(id = R.drawable.ic_description),
-                            contentDescription = "Select Game"
-                        )
-                    }
-                    FloatingActionButton(
+                        containerColor = MaterialTheme.colorScheme.secondary,
+                        icon = {
+                            Icon(
+                                painter = painterResource(id = R.drawable.ic_description),
+                                contentDescription = null
+                            )
+                        },
+                        text = { Text("Install file") }
+                    )
+                    ExtendedFloatingActionButton(
                         onClick = { gameFolderPickerLauncher.launch(null); expanded = false },
-                        containerColor = MaterialTheme.colorScheme.secondary
-                    ) {
-                        Icon(
-                            painter = painterResource(id = R.drawable.ic_folder),
-                            contentDescription = "Select Folder"
-                        )
-                    }
+                        containerColor = MaterialTheme.colorScheme.secondary,
+                        icon = {
+                            Icon(
+                                painter = painterResource(id = R.drawable.ic_folder),
+                                contentDescription = null
+                            )
+                        },
+                        text = { Text("Add games from folder") }
+                    )
                 }
             }
 

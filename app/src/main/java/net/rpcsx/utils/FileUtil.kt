@@ -62,7 +62,14 @@ object FileUtil {
                     if (installDir != null) {
                         batchDirs += InstallableFolder(currentFolderUri, installDir)
                     } else {
-                        workList.add(currentFolderUri)
+                        // Has a PARAM.SFO but is not installable as-is (e.g. an
+                        // update dir) - scan its subdirectories instead.
+                        // Re-adding currentFolderUri here looped forever.
+                        listFiles(currentFolderUri, context).forEach { item ->
+                            if (item.isDirectory) {
+                                workList.add(item.uri)
+                            }
+                        }
                     }
 
                     continue
@@ -72,7 +79,15 @@ object FileUtil {
                     if (item.isDirectory) {
                         workList.add(item.uri)
                     } else {
-                        batchFiles += item.uri
+                        // Only batch files the core can actually install, so a
+                        // mixed folder (ISO dumps next to saves/screenshots/txt)
+                        // does not spam failed-install progress entries.
+                        val name = item.filename.lowercase()
+                        if (name.endsWith(".iso") || name.endsWith(".pkg") ||
+                            name.endsWith(".edat") || name.endsWith(".pup")
+                        ) {
+                            batchFiles += item.uri
+                        }
                     }
                 }
             }
