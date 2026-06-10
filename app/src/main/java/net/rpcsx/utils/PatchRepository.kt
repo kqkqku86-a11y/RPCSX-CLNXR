@@ -61,7 +61,14 @@ object PatchRepository {
 
     /** Patches that apply to a game: ones targeting its serial, plus universal ones. */
     fun listForSerial(serial: String): List<Patch> =
-        list().filter { it.serials.isEmpty() || it.serials.contains(serial) }
+        list().filter { p ->
+            // The official patch yml frequently uses the serial "ALL" for
+            // region-independent patches - an exact match hid those here while
+            // the (title-grouped) Patch Manager still showed them.
+            p.serials.isEmpty() || p.serials.any {
+                it.equals(serial, ignoreCase = true) || it.equals("ALL", ignoreCase = true)
+            }
+        }
 
     fun setEnabled(patch: Patch, enabled: Boolean): Boolean = runCatching {
         RPCSX.instance.patchSetEnabled(patch.hash, patch.name, enabled)
