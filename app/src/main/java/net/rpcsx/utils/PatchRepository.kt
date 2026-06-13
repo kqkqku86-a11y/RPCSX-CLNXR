@@ -134,7 +134,7 @@ object PatchRepository {
                     hashes = ps.map { it.hash }.distinct(),
                     enabled = ps.any { it.enabled },
                     // The bucket key is unique by construction -> a safe stable id.
-                    id = key.joinToString(""),
+                    id = key.joinToString("«|»"),
                 )
             }
 
