@@ -50,7 +50,7 @@ import net.rpcsx.ui.settings.components.core.PreferenceHeader
 import net.rpcsx.ui.settings.components.preference.SingleSelectionDialog
 import net.rpcsx.ui.settings.components.preference.SliderPreference
 import net.rpcsx.ui.settings.components.preference.SwitchPreference
-import net.rpcsx.utils.CommunityConfigResult
+import net.rpcsx.utils.CommunityConfigFetch
 import net.rpcsx.utils.Patch
 import net.rpcsx.utils.PatchRepository
 import net.rpcsx.utils.PerGameConfigRepository
@@ -62,6 +62,15 @@ private sealed class ConfigEntry {
 }
 
 private data class LoadedConfig(val hasCustom: Boolean, val entries: List<ConfigEntry>)
+
+/** True when this leaf's current value overrides (differs from) its default. */
+private fun ConfigEntry.isChangedLeaf(): Boolean {
+    if (this !is ConfigEntry.Leaf) return false
+    if (!obj.has("value") || !obj.has("default")) return false
+    return obj.optString("value") != obj.optString("default")
+}
+
+private fun List<ConfigEntry>.changedCount(): Int = count { it.isChangedLeaf() }
 
 private fun flattenConfig(
     node: JSONObject,
@@ -107,6 +116,7 @@ fun PerGameConfigScreen(serial: String, gameName: String, navigateBack: () -> Un
     val configLoading = loaded == null
     val hasCustom = loaded?.hasCustom ?: false
     val entries = loaded?.entries ?: emptyList()
+    val totalChanged = remember(entries) { entries.changedCount() }
 
     // Group the flat config into top-level sections (Core, Video, Audio, ...).
     // A new section starts at each top-level header (one with no " / "); its
@@ -184,11 +194,16 @@ fun PerGameConfigScreen(serial: String, gameName: String, navigateBack: () -> Un
                         color = MaterialTheme.colorScheme.surfaceContainer,
                         tonalElevation = 2.dp
                     ) {
+                        val baseText = if (hasCustom)
+                            "This game uses a custom configuration. Changes below apply only to this game."
+                        else
+                            "This game uses the global configuration. Changing any setting below, or applying the community config, creates a custom configuration just for this game."
                         Text(
-                            text = if (hasCustom)
-                                "This game uses a custom configuration. Changes below apply only to this game."
-                            else
-                                "This game uses the global configuration. Changing any setting below, or applying the community config, creates a custom configuration just for this game.",
+                            // Append a single-line summary of how many settings differ
+                            // from default, so the impact is visible at a glance.
+                            text = if (totalChanged > 0)
+                                "$baseText\n\n★ $totalChanged setting${if (totalChanged == 1) "" else "s"} differ from default (marked *)."
+                            else baseText,
                             style = MaterialTheme.typography.bodyMedium,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                             modifier = Modifier.padding(20.dp)
@@ -199,20 +214,44 @@ fun PerGameConfigScreen(serial: String, gameName: String, navigateBack: () -> Un
                         onClick = {
                             scope.launch {
                                 busy = true
-                                val result = withContext(Dispatchers.IO) {
-                                    PerGameConfigRepository.applyCommunityConfig(serial)
+                                // Fetch first and PREVIEW what the config changes,
+                                // then let the user confirm before it's applied.
+                                val fetch = withContext(Dispatchers.IO) {
+                                    PerGameConfigRepository.fetchCommunityConfig(serial)
                                 }
                                 busy = false
-                                val msg = when (result) {
-                                    is CommunityConfigResult.Applied -> {
-                                        reload()
-                                        "Community configuration applied"
+                                when (fetch) {
+                                    is CommunityConfigFetch.Found -> {
+                                        AlertDialogQueue.showDialog(
+                                            title = "Apply community config?",
+                                            message = "RPCS3's recommended settings for this game " +
+                                                "(this becomes a custom config, overriding the global one):\n\n" +
+                                                fetch.yaml.trim(),
+                                            confirmText = "Apply",
+                                            dismissText = "Cancel",
+                                            onConfirm = {
+                                                scope.launch {
+                                                    busy = true
+                                                    val ok = withContext(Dispatchers.IO) {
+                                                        PerGameConfigRepository.importConfig(serial, fetch.yaml)
+                                                    }
+                                                    busy = false
+                                                    if (ok) reload()
+                                                    Toast.makeText(
+                                                        context,
+                                                        if (ok) "Community configuration applied"
+                                                        else "Config rejected by emulator",
+                                                        Toast.LENGTH_SHORT
+                                                    ).show()
+                                                }
+                                            }
+                                        )
                                     }
-                                    is CommunityConfigResult.NotFound ->
-                                        "No community configuration for this game"
-                                    is CommunityConfigResult.Error -> "Failed: ${result.message}"
+                                    is CommunityConfigFetch.NotFound ->
+                                        Toast.makeText(context, "No community configuration for this game", Toast.LENGTH_SHORT).show()
+                                    is CommunityConfigFetch.Error ->
+                                        Toast.makeText(context, "Failed: ${fetch.message}", Toast.LENGTH_SHORT).show()
                                 }
-                                Toast.makeText(context, msg, Toast.LENGTH_SHORT).show()
                             }
                         },
                         enabled = !busy,
@@ -360,9 +399,12 @@ fun PerGameConfigScreen(serial: String, gameName: String, navigateBack: () -> Un
             } else {
                 settingsSections.forEach { (sectionTitle, sectionEntries) ->
                     item(key = "sec/$sectionTitle") {
+                        val changed = sectionEntries.changedCount()
                         CollapsibleSectionHeader(
                             title = sectionTitle,
-                            subtitle = null,
+                            // Show how many settings in this section differ from
+                            // default without having to expand it.
+                            subtitle = if (changed > 0) "$changed changed" else null,
                             expanded = expandedSections[sectionTitle] == true,
                             onToggle = {
                                 expandedSections[sectionTitle] = !(expandedSections[sectionTitle] ?: false)

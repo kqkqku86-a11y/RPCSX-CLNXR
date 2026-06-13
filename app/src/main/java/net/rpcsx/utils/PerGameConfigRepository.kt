@@ -16,6 +16,14 @@ sealed class CommunityConfigResult {
     data class Error(val message: String) : CommunityConfigResult()
 }
 
+/** Result of fetching (but not yet applying) the community config, for preview. */
+sealed class CommunityConfigFetch {
+    /** The recommended config YAML, so the UI can preview it before applying. */
+    data class Found(val yaml: String) : CommunityConfigFetch()
+    object NotFound : CommunityConfigFetch()
+    data class Error(val message: String) : CommunityConfigFetch()
+}
+
 /**
  * App-side glue for per-game custom configs. The core owns the actual YAML
  * (config/custom_configs/config_<serial>.yml) and applies it at boot via
@@ -59,40 +67,50 @@ object PerGameConfigRepository {
     }.getOrDefault(false)
 
     /**
-     * Download the official RPCS3 config database, look up this game's
-     * recommended configuration, and save it as the game's custom config (the
-     * core validates it against the schema before writing).
+     * Download the official RPCS3 config database and return this game's
+     * recommended config YAML (without applying it) so the UI can preview the
+     * changes before the user commits.
      */
-    fun applyCommunityConfig(serial: String): CommunityConfigResult {
-        if (serial.isEmpty()) return CommunityConfigResult.Error("Unknown game serial")
+    fun fetchCommunityConfig(serial: String): CommunityConfigFetch {
+        if (serial.isEmpty()) return CommunityConfigFetch.Error("Unknown game serial")
         return try {
             val request = Request.Builder().url(CONFIG_DB_URL)
                 .header("User-Agent", "rpcsx").build()
 
             client.newCall(request).execute().use { resp ->
-                if (!resp.isSuccessful) return CommunityConfigResult.Error("HTTP ${resp.code}")
+                if (!resp.isSuccessful) return CommunityConfigFetch.Error("HTTP ${resp.code}")
 
                 val root = JSONObject(resp.body?.string().orEmpty())
                 when (val rc = root.optInt("return_code", -255)) {
                     in 0..Int.MAX_VALUE -> Unit
-                    -2 -> return CommunityConfigResult.Error("Server in maintenance mode")
-                    else -> return CommunityConfigResult.Error("Server error (code $rc)")
+                    -2 -> return CommunityConfigFetch.Error("Server in maintenance mode")
+                    else -> return CommunityConfigFetch.Error("Server error (code $rc)")
                 }
 
                 val games = root.optJSONObject("games")
-                    ?: return CommunityConfigResult.Error("Malformed database")
-                val game = games.optJSONObject(serial) ?: return CommunityConfigResult.NotFound
+                    ?: return CommunityConfigFetch.Error("Malformed database")
+                val game = games.optJSONObject(serial) ?: return CommunityConfigFetch.NotFound
                 val yaml = game.optString("config")
-                if (yaml.isEmpty()) return CommunityConfigResult.NotFound
-
-                if (RPCSX.instance.customConfigImport(serial, yaml)) {
-                    CommunityConfigResult.Applied
-                } else {
-                    CommunityConfigResult.Error("Config rejected by emulator")
-                }
+                if (yaml.isEmpty()) return CommunityConfigFetch.NotFound
+                CommunityConfigFetch.Found(yaml)
             }
         } catch (e: Throwable) {
-            CommunityConfigResult.Error(e.message ?: "Download failed")
+            CommunityConfigFetch.Error(e.message ?: "Download failed")
         }
     }
+
+    /** Save a config YAML as the game's custom config (core validates the schema). */
+    fun importConfig(serial: String, yaml: String): Boolean = runCatching {
+        RPCSX.instance.customConfigImport(serial, yaml)
+    }.getOrDefault(false)
+
+    /** Fetch + apply in one step (kept for callers that don't preview first). */
+    fun applyCommunityConfig(serial: String): CommunityConfigResult =
+        when (val f = fetchCommunityConfig(serial)) {
+            is CommunityConfigFetch.Found ->
+                if (importConfig(serial, f.yaml)) CommunityConfigResult.Applied
+                else CommunityConfigResult.Error("Config rejected by emulator")
+            is CommunityConfigFetch.NotFound -> CommunityConfigResult.NotFound
+            is CommunityConfigFetch.Error -> CommunityConfigResult.Error(f.message)
+        }
 }
