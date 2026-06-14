@@ -319,13 +319,14 @@ fun RpcnSettingsScreen(navigateBack: () -> Unit) {
             }
 
             // (C) Game online server (per-game DNS switch) -------------------
-            // Only shown when the current game has a known community server. No
-            // game / no match -> nothing here, so the screen stays uncluttered.
+            // Always shown so the feature is discoverable: a header plus either
+            // the apply button (running game has a known server) or a hint
+            // explaining it is per-game.
             val gs = gameServer
+            item(key = "hdr_game_server") {
+                PreferenceHeader(text = stringResource(R.string.game_server_header))
+            }
             if (gs != null && currentSerial.isNotBlank()) {
-                item(key = "hdr_game_server") {
-                    PreferenceHeader(text = stringResource(R.string.game_server_header))
-                }
                 item(key = "game_server_card") {
                     Card(
                         modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 4.dp),
@@ -375,6 +376,17 @@ fun RpcnSettingsScreen(navigateBack: () -> Unit) {
                             }
                         }
                     }
+                }
+            } else {
+                item(key = "game_server_hint") {
+                    PreferenceSubtitle(
+                        text = stringResource(
+                            if (currentSerial.isBlank()) R.string.game_server_no_game
+                            else R.string.game_server_no_match
+                        ),
+                        modifier = Modifier.padding(horizontal = 20.dp, vertical = 4.dp),
+                        maxLines = 3
+                    )
                 }
             }
 

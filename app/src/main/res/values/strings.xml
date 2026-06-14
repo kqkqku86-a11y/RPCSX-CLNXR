@@ -176,6 +176,8 @@
 
     <string name="game_server_header">Game online server</string>
     <string name="game_server_note">Redirects this game to a community replacement server (the original servers are offline). Restart the game to take effect.</string>
+    <string name="game_server_no_game">This is per-game. Launch a game (for example Demon\'s Souls) and open this screen to apply its community server here.</string>
+    <string name="game_server_no_match">No known community server for the current game. You can redirect it manually below if you have the host details.</string>
     <string name="game_server_apply">Apply %1$s for this game</string>
     <string name="game_server_applied">Applied. Restart the game for it to take effect.</string>
     <string name="game_server_manual_show">Advanced: manual server redirect</string>
