@@ -1,10 +1,11 @@
 package net.rpcsx
 
-import android.app.Activity
 import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
 import android.os.PowerManager
+import androidx.activity.ComponentActivity
+import androidx.activity.OnBackPressedCallback
 import android.util.Log
 import android.view.InputDevice
 import android.view.KeyEvent
@@ -25,7 +26,7 @@ import net.rpcsx.utils.InputBindingPrefs
 import kotlin.concurrent.thread
 import kotlin.math.abs
 
-class RPCSXActivity : Activity() {
+class RPCSXActivity : ComponentActivity() {
     private lateinit var binding: ActivityRpcs3Binding
     private lateinit var unregisterUsbEventListener: () -> Unit
     private var gamePadState: State = State()
@@ -36,18 +37,16 @@ class RPCSXActivity : Activity() {
 
     // Back-button policy: during gameplay the system back button opens the
     // in-game quick (home) menu instead of exiting. Exit happens from that menu
-    // ("Exit Game"), which stops the emulator; the watcher below then finishes
-    // this activity so we return to the library. Without this watcher, removing
-    // the old back->finish() behaviour would leave no way back to the library.
-    private var sawRunning = false
+    // ("Exit Game"), which stops the emulator; the exit watcher then finishes
+    // this activity so we return to the library. Registered via the
+    // OnBackPressedDispatcher so it fires reliably on Android 13+ predictive
+    // back (overriding the deprecated onBackPressed() does not).
     private val watcherHandler = Handler(Looper.getMainLooper())
     private val stateWatcher = object : Runnable {
         override fun run() {
-            val s = RPCSX.getState()
-            if (s == EmulatorState.Running || s == EmulatorState.Paused) {
-                sawRunning = true
-            }
-            if (sawRunning && s == EmulatorState.Stopped) {
+            // Started only once the game is live (see startExitWatcher), so a
+            // Stopped state here means the user exited from the quick menu.
+            if (RPCSX.getState() == EmulatorState.Stopped) {
                 finish()
                 return
             }
@@ -55,16 +54,22 @@ class RPCSXActivity : Activity() {
         }
     }
 
-    override fun onBackPressed() {
-        val s = RPCSX.getState()
-        // Ignore back as a "leave gameplay" gesture while a game is live; surface
-        // it as the quick menu instead. This also avoids the old side effect where
-        // back -> finish() -> surfaceDestroyed -> the core opened the home menu.
-        if (s == EmulatorState.Running || s == EmulatorState.Paused) {
-            runCatching { RPCSX.instance.openHomeMenu() }
-            return
+    private fun startExitWatcher() {
+        watcherHandler.removeCallbacks(stateWatcher)
+        watcherHandler.post(stateWatcher)
+    }
+
+    private val backCallback = object : OnBackPressedCallback(true) {
+        override fun handleOnBackPressed() {
+            when (RPCSX.getState()) {
+                EmulatorState.Running, EmulatorState.Paused ->
+                    // open_home_menu is idempotent, so spamming back is harmless.
+                    runCatching { RPCSX.instance.openHomeMenu() }
+                else ->
+                    // Not in active gameplay (booting/stopped): leave to library.
+                    finish()
+            }
         }
-        super.onBackPressed()
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -74,6 +79,7 @@ class RPCSXActivity : Activity() {
 
         unregisterUsbEventListener = listenUsbEvents(this)
         enableFullScreenImmersive()
+        onBackPressedDispatcher.addCallback(this, backCallback)
 
         // Thermal-aware frame cap: cools the device under sustained load.
         net.rpcsx.utils.ThermalManager.register(this)
@@ -105,6 +111,7 @@ class RPCSXActivity : Activity() {
 
                 if (state == EmulatorState.Paused && RPCSX.activeGame.value == gamePath) {
                     RPCSX.instance.resume()
+                    runOnUiThread { startExitWatcher() }
                     return@thread
                 }
 
@@ -130,10 +137,12 @@ class RPCSXActivity : Activity() {
                     getString(R.string.error_with_msg, bootResult.name)
                 )
                 finish()
+            } else {
+                // Game is live: from here a Stopped state means a deliberate exit
+                // (quick menu "Exit Game"), so it is safe to finish the activity.
+                runOnUiThread { startExitWatcher() }
             }
         }
-
-        watcherHandler.post(stateWatcher)
     }
 
     override fun onDestroy() {
