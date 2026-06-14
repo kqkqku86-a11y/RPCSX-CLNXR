@@ -1,15 +1,6 @@
 {
-  "comment": "Maps a PS3 game serial to community RPCN servers that game is known to need. Bundled so the suggestions work fully offline; an updatable copy may be fetched from the remote URL in RpcnRepository. Hosts here are community placeholders - verify against the RPCS3 wiki before relying on them.",
-  "version": 1,
+  "comment": "Maps a PS3 game serial to community RPCN servers that game is known to need. Bundled so the lookup works fully offline; an updatable copy is fetched from the remote URL in RpcnRepository and overrides this. Intentionally EMPTY by default: the official server (np.rpcs3.net) hosts most online titles including Demon's Souls, so no custom server is needed for them. Real community servers are added via the remote list or by the user manually (Add custom server). Do NOT ship unresolvable placeholder hosts here - a bad host produces a 'resolve error' on connect.",
+  "version": 2,
   "servers": {
-    "BLES00932": [
-      { "name": "Demon's Souls (community)", "host": "demonssouls.rpcn.example.net" }
-    ],
-    "BLUS30443": [
-      { "name": "Demon's Souls (community)", "host": "demonssouls.rpcn.example.net" }
-    ],
-    "BCJS30022": [
-      { "name": "Demon's Souls (community)", "host": "demonssouls.rpcn.example.net" }
-    ]
   }
 }
