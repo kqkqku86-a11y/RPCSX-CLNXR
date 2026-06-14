@@ -91,6 +91,7 @@ class RPCSX {
     external fun setThermalFrameCap(fps: Float)
     external fun setCpuAffinityMode(on: Boolean)
     external fun setWfeMode(on: Boolean)
+    external fun setSmoothShaders(on: Boolean)
     external fun getState() : Int
     external fun kill()
     external fun resume()

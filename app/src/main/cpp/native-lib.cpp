@@ -59,6 +59,7 @@ struct RPCSXApi {
   void (*setThermalFrameCap)(float fps);
   void (*setCpuAffinityMode)(int on);
   void (*setWfeMode)(int on);
+  void (*setSmoothShaders)(int on);
   std::string (*rpcnGetConfig)();
   void (*rpcnSetCredentials)(std::string_view npid, std::string_view password, std::string_view token);
   std::string (*rpcnGetHosts)();
@@ -147,6 +148,7 @@ struct RPCSXLibrary : RPCSXApi {
     result.setThermalFrameCap = reinterpret_cast<decltype(setThermalFrameCap)>(dlsym(handle, "_rpcsx_setThermalFrameCap"));
     result.setCpuAffinityMode = reinterpret_cast<decltype(setCpuAffinityMode)>(dlsym(handle, "_rpcsx_setCpuAffinityMode"));
     result.setWfeMode = reinterpret_cast<decltype(setWfeMode)>(dlsym(handle, "_rpcsx_setWfeMode"));
+    result.setSmoothShaders = reinterpret_cast<decltype(setSmoothShaders)>(dlsym(handle, "_rpcsx_setSmoothShaders"));
     result.rpcnGetConfig = reinterpret_cast<decltype(rpcnGetConfig)>(dlsym(handle, "_rpcsx_rpcnGetConfig"));
     result.rpcnSetCredentials = reinterpret_cast<decltype(rpcnSetCredentials)>(dlsym(handle, "_rpcsx_rpcnSetCredentials"));
     result.rpcnGetHosts = reinterpret_cast<decltype(rpcnGetHosts)>(dlsym(handle, "_rpcsx_rpcnGetHosts"));
@@ -353,6 +355,12 @@ extern "C" JNIEXPORT void JNICALL Java_net_rpcsx_RPCSX_setWfeMode(
     JNIEnv *, jobject, jboolean on) {
   if (!rpcsxLib.setWfeMode) return;
   rpcsxLib.setWfeMode(on ? 1 : 0);
+}
+
+extern "C" JNIEXPORT void JNICALL Java_net_rpcsx_RPCSX_setSmoothShaders(
+    JNIEnv *, jobject, jboolean on) {
+  if (!rpcsxLib.setSmoothShaders) return;
+  rpcsxLib.setSmoothShaders(on ? 1 : 0);
 }
 
 extern "C" JNIEXPORT jstring JNICALL
