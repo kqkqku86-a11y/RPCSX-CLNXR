@@ -324,9 +324,9 @@ fun ClankerFeaturesScreen(navigateBack: () -> Unit) {
             }
             item(key = "sustained_performance") {
                 var itemValue by remember {
-                    mutableStateOf(GeneralSettings["sustained_performance"] as Boolean? ?: true)
+                    mutableStateOf(GeneralSettings["sustained_performance"] as Boolean? ?: false)
                 }
-                val def = true
+                val def = false
                 SwitchPreference(
                     checked = itemValue,
                     title = stringResource(R.string.enable_sustained_performance) + if (itemValue == def) "" else " *",

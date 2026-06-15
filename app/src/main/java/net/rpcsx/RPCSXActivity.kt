@@ -84,11 +84,13 @@ class RPCSXActivity : ComponentActivity() {
         // Thermal-aware frame cap: cools the device under sustained load.
         net.rpcsx.utils.ThermalManager.register(this)
 
-        // Prefer steady clocks over short bursts: long emulation sessions are
-        // thermally bound, and consistent frametimes beat a higher peak that
-        // throttles into stutter. No-op on devices that don't support it.
-        // User-toggleable (default on); disable for higher peak bursts.
-        if ((GeneralSettings["sustained_performance"] as? Boolean) != false) {
+        // Sustained performance mode caps the SoC to a PASSIVELY-sustainable clock.
+        // On an actively-cooled handheld (e.g. Retroid Pocket 6 has a fan) that just
+        // caps the peak fps we want, with little thermal upside since the fan handles
+        // cooling. Unproven to help our CPU/SPU-bound workload, so default OFF per the
+        // "don't default-on unverified features" rule. User-toggleable: enable it to
+        // trade peak fps for lower heat/fan on long sessions. No-op where unsupported.
+        if ((GeneralSettings["sustained_performance"] as? Boolean) == true) {
             (getSystemService(POWER_SERVICE) as? PowerManager)?.let { pm ->
                 if (pm.isSustainedPerformanceModeSupported) {
                     window.setSustainedPerformanceMode(true)
