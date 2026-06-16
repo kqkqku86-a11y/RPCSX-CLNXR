@@ -283,20 +283,10 @@ fun ClankerFeaturesScreen(navigateBack: () -> Unit) {
                     }
                 )
             }
-            item(key = "smooth_shaders") {
-                var itemValue by remember { mutableStateOf(GeneralSettings["smooth_shaders"] as? Boolean ?: false) }
-                SwitchPreference(
-                    checked = itemValue,
-                    title = stringResource(R.string.clanker_smooth_shaders),
-                    subtitle = { PreferenceSubtitle(text = stringResource(R.string.clanker_smooth_shaders_summary), maxLines = 3) },
-                    leadingIcon = null,
-                    onClick = { value ->
-                        GeneralSettings.setValue("smooth_shaders", value)
-                        runCatching { net.rpcsx.RPCSX.instance.setSmoothShaders(value) }
-                        itemValue = value
-                    }
-                )
-            }
+            // Smooth-shaders toggle removed: the async-interpreter path is dysfunctional
+            // on the current backend (freezes), so it is not exposed. The core plumbing
+            // stays dormant (forced OFF in MainActivity) until the non-blocking preload
+            // re-land fixes it. Never expose a disfunctional feature to the user.
             item(key = "auto_compile_threads") {
                 val context = LocalContext.current
                 var itemValue by remember { mutableStateOf(CompileThreadPolicy.enabled) }

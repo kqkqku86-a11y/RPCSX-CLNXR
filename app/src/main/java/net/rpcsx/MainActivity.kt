@@ -114,10 +114,12 @@ class MainActivity : ComponentActivity() {
                 runCatching {
                     RPCSX.instance.setWfeMode(GeneralSettings["wfe_mode"] as? Boolean ?: false)
                 }
-                // Smooth shaders: render new shaders via the interpreter while they
-                // compile to avoid pop-in stutter (default off; experimental, can cause freezes on current build).
+                // Smooth shaders (async interpreter) is dysfunctional on the current
+                // backend (freezes), so the toggle is removed and the feature is forced
+                // OFF here - overriding any value a previous build may have saved - until
+                // the non-blocking preload re-land lands. Do not re-expose until fixed.
                 runCatching {
-                    RPCSX.instance.setSmoothShaders(GeneralSettings["smooth_shaders"] as? Boolean ?: false)
+                    RPCSX.instance.setSmoothShaders(false)
                 }
                 val gpuDriverPath = GeneralSettings["gpu_driver_path"] as? String
                 val gpuDriverName = GeneralSettings["gpu_driver_name"] as? String
