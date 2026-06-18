@@ -16,17 +16,16 @@ RPCSX.
 
 ## Two requests if you use this build
 
-This is **not my work** — it's the work of the **RPCS3** and **RPCSX** teams. I only ported
-and adapted it to Android, with heavy AI assistance. If you enjoy it, honour these two things:
+This is **not original work** — the emulator is the work of the **RPCS3** and **RPCSX**
+teams; only the Android porting and adaptation happens here, with heavy AI assistance. If
+this build is useful to you, please honour these two things:
 
 ### 1. Donate to the teams who actually built the emulator
-Support them, not me — I want nothing:
+Support them:
 - **RPCS3** — <https://rpcs3.net/> · Patreon: <https://www.patreon.com/Nekotekina>
 - **RPCSX** — <https://github.com/RPCSX/rpcsx>
 
 ### 2. Play Demon's Souls online — and find me
-The shadows finally work. Boot **Demon's Souls**, go online via RPCN, and come find me in
-the Nexus (leave a message / soapstone). That's the only reward I'm after.
 
 ---
 
@@ -62,8 +61,10 @@ take anything useful from here. All credit for the emulator and this UI belongs 
   title online and override the global RPCN enable/disable toggle, and an open session isn't
   torn down on disable. To reliably go offline you may also need to clear the per-game
   config's online/net setting. (Proper fix is on the TODO.)
-- **RPCN credentials are stored in cleartext** (`rpcn.yml`) on app-accessible storage — the
-  encrypted-storage attempt was reverted. Avoid RPCN on a shared/untrusted device for now.
+- **RPCN credentials** (`rpcn.yml`, derived password + token) are stored in app-internal
+  storage (not MTP/USB/other-app readable) and excluded from backup. Server-certificate
+  verification is still off (same as upstream), so avoid adding untrusted custom RPCN hosts
+  on a network you do not control.
 - **Battery-saver is default ON** (it helped on the test device); other power toggles
   (sustained perf, CPU affinity, low-power WFE, thermal, ADPF) are **default OFF and
   unproven** — enabling them may regress fps/stability.
