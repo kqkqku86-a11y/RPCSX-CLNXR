@@ -76,6 +76,7 @@ struct RPCSXApi {
   std::string (*rpcnCreateAccount)(std::string_view npid, std::string_view password, std::string_view online_name, std::string_view email, std::string_view country);
   std::string (*rpcnResendToken)();
   std::string (*rpcnTestConnection)();
+  std::string (*rpcnLiveStatus)();
   void (*rpcnSetEnabled)(int enabled);
   bool (*rpcnIsEnabled)();
 };
@@ -170,6 +171,7 @@ struct RPCSXLibrary : RPCSXApi {
     result.rpcnCreateAccount = reinterpret_cast<decltype(rpcnCreateAccount)>(dlsym(handle, "_rpcsx_rpcnCreateAccount"));
     result.rpcnResendToken = reinterpret_cast<decltype(rpcnResendToken)>(dlsym(handle, "_rpcsx_rpcnResendToken"));
     result.rpcnTestConnection = reinterpret_cast<decltype(rpcnTestConnection)>(dlsym(handle, "_rpcsx_rpcnTestConnection"));
+    result.rpcnLiveStatus = reinterpret_cast<decltype(rpcnLiveStatus)>(dlsym(handle, "_rpcsx_rpcnLiveStatus"));
     result.rpcnSetEnabled = reinterpret_cast<decltype(rpcnSetEnabled)>(dlsym(handle, "_rpcsx_rpcnSetEnabled"));
     result.rpcnIsEnabled = reinterpret_cast<decltype(rpcnIsEnabled)>(dlsym(handle, "_rpcsx_rpcnIsEnabled"));
     // clang-format on
@@ -468,6 +470,12 @@ extern "C" JNIEXPORT jstring JNICALL
 Java_net_rpcsx_RPCSX_rpcnTestConnection(JNIEnv *env, jobject) {
   if (!rpcsxLib.rpcnTestConnection) return wrap(env, std::string{"RPCN unavailable in this build"});
   return wrap(env, rpcsxLib.rpcnTestConnection());
+}
+
+extern "C" JNIEXPORT jstring JNICALL
+Java_net_rpcsx_RPCSX_rpcnLiveStatus(JNIEnv *env, jobject) {
+  if (!rpcsxLib.rpcnLiveStatus) return wrap(env, std::string{"offline"});
+  return wrap(env, rpcsxLib.rpcnLiveStatus());
 }
 
 extern "C" JNIEXPORT void JNICALL

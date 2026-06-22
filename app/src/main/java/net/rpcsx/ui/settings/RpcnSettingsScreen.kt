@@ -79,6 +79,7 @@ fun RpcnSettingsScreen(navigateBack: () -> Unit) {
     var enabled by remember { mutableStateOf(false) }
     var statusLine by remember { mutableStateOf("") }
     var testing by remember { mutableStateOf(false) }
+    var liveStatus by remember { mutableStateOf("offline") }
 
     var npid by remember { mutableStateOf("") }
     var password by remember { mutableStateOf("") }
@@ -102,6 +103,14 @@ fun RpcnSettingsScreen(navigateBack: () -> Unit) {
             ?: RPCSX.activeGame.value?.let { PerGameConfigRepository.serialOf(it) }
                 ?.takeIf { it.isNotBlank() }
             ?: ""
+    }
+
+    // Poll the live RPCN connection state for a passive indicator (non-blocking; never reconnects).
+    LaunchedEffect(Unit) {
+        while (true) {
+            liveStatus = RpcnRepository.liveStatus()
+            kotlinx.coroutines.delay(2500)
+        }
     }
 
     suspend fun refreshHosts() {
@@ -175,6 +184,19 @@ fun RpcnSettingsScreen(navigateBack: () -> Unit) {
                             }
                         }
                     }
+                )
+            }
+            item(key = "live_status") {
+                val (label, color) = when (liveStatus) {
+                    "online" -> "Connected" to androidx.compose.ui.graphics.Color(0xFF4CAF50)
+                    "connecting" -> "Connecting..." to androidx.compose.ui.graphics.Color(0xFFFFB300)
+                    else -> "Not connected" to MaterialTheme.colorScheme.onSurfaceVariant
+                }
+                Text(
+                    text = label,
+                    color = color,
+                    style = MaterialTheme.typography.bodyMedium,
+                    modifier = Modifier.fillMaxWidth().padding(horizontal = 20.dp, vertical = 6.dp)
                 )
             }
             item(key = "status_action") {

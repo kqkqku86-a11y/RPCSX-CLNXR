@@ -145,6 +145,13 @@ object RpcnRepository {
             .getOrElse { Log.e(TAG, "rpcnTestConnection failed", it); it.message ?: "Connection test failed" }
     }
 
+    // Passive, non-blocking status of an existing session: "online" | "connecting" | "offline".
+    // Does not create a client or reconnect, so it is safe to poll on a timer.
+    suspend fun liveStatus(): String = withContext(Dispatchers.IO) {
+        runCatching { RPCSX.instance.rpcnLiveStatus() }
+            .getOrElse { Log.e(TAG, "rpcnLiveStatus failed", it); "offline" }
+    }
+
     suspend fun setEnabled(enabled: Boolean): Boolean = withContext(Dispatchers.IO) {
         runCatching { RPCSX.instance.rpcnSetEnabled(enabled); true }
             .getOrElse { Log.e(TAG, "rpcnSetEnabled failed", it); false }

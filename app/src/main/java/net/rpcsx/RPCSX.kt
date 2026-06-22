@@ -135,6 +135,7 @@ class RPCSX {
     external fun rpcnCreateAccount(npid: String, password: String, onlineName: String, email: String, country: String): String
     external fun rpcnResendToken(): String            // "" success else error
     external fun rpcnTestConnection(): String         // "" success else error
+    external fun rpcnLiveStatus(): String             // "online" | "connecting" | "offline" (non-blocking)
     external fun rpcnSetEnabled(enabled: Boolean)
     external fun rpcnIsEnabled(): Boolean
 
