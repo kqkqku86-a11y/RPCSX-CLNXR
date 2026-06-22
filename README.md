@@ -145,7 +145,7 @@ take anything useful from here. All credit for the emulator and this UI belongs 
 <summary>Expand</summary>
 
 - **Smooth-shaders (async shader interpreter) toggle** — added (briefly default-ON), defaulted OFF, then the toggle was **removed** because the async path freezes on the current backend; the core plumbing stays dormant until a non-blocking re-land.
-- **Keystore-backed EncryptedSharedPreferences for RPCN credentials** — added then **reverted**; credentials currently aren't encrypted (a known release-safety gap — see TODO).
+- **Keystore-backed EncryptedSharedPreferences for RPCN credentials** — added then **reverted** in favour of a simpler fix: credentials now live in app-private internal storage (not MTP/USB/other-app readable) and are excluded from backup. They are not additionally encrypted-at-rest, which is acceptable for an app-private file.
 - **Box-art / pseudo-3D cover tiles** — multiple cover-loading attempts (GameTDB by title id, multi-region fallback, pseudo-3D) were cut back to an icon-only grid because remote cover loading was unreliable on-device; code left dormant.
 - **In-game rounded-corner/border overlay** — the in-game variant was reverted (it risked clipping the render surface); rounded corners/border moved to library tiles.
 </details>
@@ -155,7 +155,7 @@ take anything useful from here. All credit for the emulator and this UI belongs 
 <details>
 <summary>Expand</summary>
 
-- **RPCN credential storage hardening** — move credentials/token off plaintext; connection-status indicator; clearer create-vs-login flow.
+- **RPCN UX** — a connection-status indicator and a clearer create-vs-login flow. (Credential storage is already off external/world-readable storage; see above.)
 - **RPCN offline toggle** — make the global enable toggle authoritative over per-game online overrides and tear down a live session on disable.
 - **Configurable patch values** — patches with `[Configurable Values]` need the core to expose the patch config schema plus UI.
 - **Smooth-shaders re-land** once a non-blocking, boot-only preload is validated.
