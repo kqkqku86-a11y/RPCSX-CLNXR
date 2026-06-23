@@ -111,12 +111,12 @@ class MainActivity : ComponentActivity() {
                 }
 
                 // Mark "loading" before the native load; cleared only if the load returns
-                // (no crash). A still-set flag on next launch trips the breaker above.
-                GeneralSettings["rpcsx_core_loading"] = true
-                GeneralSettings.sync()
+                // (no crash). A still-set flag on next launch trips the breaker above. These MUST
+                // be synchronous commits so the flag is durably on disk before openLibrary can
+                // hard-crash the process (apply()/sync() do not guarantee a flush before the crash).
+                GeneralSettings.setValueSync("rpcsx_core_loading", true)
                 RPCSX.openLibrary(rpcsxLibrary)
-                GeneralSettings["rpcsx_core_loading"] = false
-                GeneralSettings.sync()
+                GeneralSettings.setValueSync("rpcsx_core_loading", false)
             }
 
             val nativeLibraryDir =
@@ -145,12 +145,11 @@ class MainActivity : ComponentActivity() {
                 runCatching {
                     RPCSX.instance.setWfeMode(GeneralSettings["wfe_mode"] as? Boolean ?: false)
                 }
-                // Smooth shaders (async interpreter) is dysfunctional on the current
-                // backend (freezes), so the toggle is removed and the feature is forced
-                // OFF here - overriding any value a previous build may have saved - until
-                // the non-blocking preload re-land lands. Do not re-expose until fixed.
+                // Smooth shaders (async interpreter): apply the user's saved choice. The
+                // async path now uses a non-blocking preload (no RSX-thread drain), so it is
+                // re-exposed as an opt-in toggle. Still defaults OFF until validated on-device.
                 runCatching {
-                    RPCSX.instance.setSmoothShaders(false)
+                    RPCSX.instance.setSmoothShaders(GeneralSettings["smooth_shaders"] as? Boolean ?: false)
                 }
                 val gpuDriverPath = GeneralSettings["gpu_driver_path"] as? String
                 val gpuDriverName = GeneralSettings["gpu_driver_name"] as? String

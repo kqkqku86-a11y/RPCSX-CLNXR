@@ -36,6 +36,24 @@ object GeneralSettings {
         }
     }
 
+    // Synchronous variant: blocks until the value is flushed to disk (single-editor commit()).
+    // Use for durability-critical writes - e.g. a flag that must be on disk BEFORE the very next
+    // line can hard-crash the process (setValue()'s apply() is async and would not guarantee that).
+    fun setValueSync(key: String, value: Any?) {
+        with(prefs.edit()) {
+            when (value) {
+                null -> remove(key)
+                is String -> putString(key, value)
+                is Int -> putInt(key, value)
+                is Boolean -> putBoolean(key, value)
+                is Float -> putFloat(key, value)
+                is Long -> putLong(key, value)
+                else -> throw IllegalArgumentException("Unsupported type: ${value::class.java.name}")
+            }
+            commit()
+        }
+    }
+
     fun Any?.boolean(def: Boolean = false): Boolean {
         return this as? Boolean ?: def
     }
