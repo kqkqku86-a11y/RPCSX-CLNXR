@@ -214,7 +214,9 @@ fun RpcnSettingsScreen(navigateBack: () -> Unit) {
                 Column(modifier = Modifier.fillMaxWidth().padding(horizontal = 20.dp, vertical = 4.dp)) {
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         OutlinedButton(
-                            enabled = !testing,
+                            // Only allow testing while RPCN is enabled - testing while disabled
+                            // would spin up a live connection the user just turned off.
+                            enabled = !testing && enabled,
                             onClick = {
                                 testing = true
                                 statusLine = ""
@@ -240,6 +242,13 @@ fun RpcnSettingsScreen(navigateBack: () -> Unit) {
 
             // (B) Account ----------------------------------------------------
             item(key = "hdr_account") { PreferenceHeader(text = stringResource(R.string.rpcn_account_header)) }
+            item(key = "account_help") {
+                PreferenceSubtitle(
+                    text = stringResource(R.string.rpcn_account_help),
+                    maxLines = 5,
+                    modifier = Modifier.padding(horizontal = 20.dp, vertical = 4.dp)
+                )
+            }
             item(key = "account_fields") {
                 Column(modifier = Modifier.fillMaxWidth().padding(horizontal = 20.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                     OutlinedTextField(

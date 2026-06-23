@@ -157,12 +157,13 @@
     <string name="rpcn_connected">Connected</string>
     <string name="rpcn_toggle_failed">Could not change online state</string>
     <string name="rpcn_account_header">Account</string>
+    <string name="rpcn_account_help">New account: fill in Online ID, password, online name and email, then tap Create account and check your email for a token. Existing account: enter your Online ID, password and the token, then tap Sign in.</string>
     <string name="rpcn_npid">Online ID (NPID)</string>
     <string name="rpcn_password">Password</string>
-    <string name="rpcn_online_name">Online name</string>
-    <string name="rpcn_email">Email</string>
-    <string name="rpcn_country">Country (2-letter)</string>
-    <string name="rpcn_token">Token</string>
+    <string name="rpcn_online_name">Online name (new account)</string>
+    <string name="rpcn_email">Email (new account)</string>
+    <string name="rpcn_country">Country (new account, 2-letter)</string>
+    <string name="rpcn_token">Token (sign in / verify)</string>
     <string name="rpcn_create_account">Create account</string>
     <string name="rpcn_resend_token">Resend token</string>
     <string name="rpcn_sign_in">Sign in / Verify</string>
