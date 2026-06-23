@@ -186,7 +186,10 @@ fun RpcnSettingsScreen(navigateBack: () -> Unit) {
                                 // holds the client alive; testConnection establishes the session
                                 // and the status poll below picks it up.
                                 liveStatus = "connecting"
-                                RpcnRepository.testConnection()
+                                val err = RpcnRepository.testConnection()
+                                // Reflect the result immediately so the indicator doesn't flash
+                                // "connecting" after the test already reported connected.
+                                liveStatus = if (err.isEmpty()) "online" else "offline"
                             } else {
                                 liveStatus = "offline"
                             }

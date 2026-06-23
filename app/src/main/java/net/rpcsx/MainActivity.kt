@@ -145,9 +145,10 @@ class MainActivity : ComponentActivity() {
                 runCatching {
                     RPCSX.instance.setWfeMode(GeneralSettings["wfe_mode"] as? Boolean ?: false)
                 }
-                // Smooth shaders (async interpreter): apply the user's saved choice. The
-                // async path now uses a non-blocking preload (no RSX-thread drain), so it is
-                // re-exposed as an opt-in toggle. Still defaults OFF until validated on-device.
+                // Smooth shaders: the async SPIR-V interpreter is currently DISABLED in the core
+                // (it destabilised the Vulkan backend - shared_mutex underflow at boot; see
+                // VKGSRender), so this flag is inert. Kept wired for a future stable re-land;
+                // shaders already compile asynchronously (async_recompiler) by default. Off.
                 runCatching {
                     RPCSX.instance.setSmoothShaders(GeneralSettings["smooth_shaders"] as? Boolean ?: false)
                 }
@@ -160,6 +161,17 @@ class MainActivity : ComponentActivity() {
 
                 lifecycleScope.launch {
                     UserRepository.load()
+                }
+
+                // Auto-connect RPCN on startup if the user left it enabled, so the live status
+                // reflects the session without re-opening settings. Off-thread, best-effort; the
+                // core's persistent client ref holds the connection once testConnection lands.
+                lifecycleScope.launch {
+                    runCatching {
+                        if (net.rpcsx.utils.RpcnRepository.isEnabled()) {
+                            net.rpcsx.utils.RpcnRepository.testConnection()
+                        }
+                    }
                 }
 
                 RPCSX.initialized = true
