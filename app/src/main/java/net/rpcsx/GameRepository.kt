@@ -225,7 +225,7 @@ class GameRepository {
 
         fun onBoot(game: Game) {
             synchronized(instance) {
-                if (instance.games.first() != game) {
+                if (instance.games.firstOrNull() != game) {
                     instance.games.remove(game)
                     instance.games.add(0, game)
                     save()
@@ -264,7 +264,9 @@ class GameRepository {
         fun list() = instance.games
 
         fun clear() {
-            instance.games.clear()
+            synchronized(instance) {
+                instance.games.clear()
+            }
         }
     }
 }
