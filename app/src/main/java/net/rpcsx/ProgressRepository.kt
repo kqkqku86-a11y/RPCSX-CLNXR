@@ -14,6 +14,7 @@ import androidx.core.app.NotificationCompat
 import androidx.core.app.NotificationManagerCompat
 import net.rpcsx.dialogs.AlertDialogQueue
 import java.util.concurrent.ConcurrentHashMap
+import java.util.concurrent.atomic.AtomicLong
 
 data class ProgressEntry(
     val value: MutableLongState = mutableLongStateOf(0),
@@ -40,7 +41,7 @@ private data class ProgressWithHandler(
 
 class ProgressRepository {
     private var progressHandlers = ConcurrentHashMap<Long, ProgressWithHandler>()
-    private var nextRequestId = 1L
+    private val nextRequestId = AtomicLong(1L)
 
     companion object {
         private val instance = ProgressRepository()
@@ -82,7 +83,7 @@ class ProgressRepository {
             var requestId: Long
             val entry = ProgressWithHandler(handler, mutableStateOf(ProgressEntry()))
             while (true) {
-                requestId = instance.nextRequestId++
+                requestId = instance.nextRequestId.getAndIncrement()
                 if (instance.progressHandlers.put(requestId, entry) == null) {
                     break
                 }
