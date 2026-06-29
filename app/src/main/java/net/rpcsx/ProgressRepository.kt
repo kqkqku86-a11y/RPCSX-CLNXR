@@ -112,6 +112,15 @@ class ProgressRepository {
                 val max = message.data.getLong("max")
                 val text = message.data.getString("message")
 
+                // A failure must always surface the in-app dialog, even when the
+                // POST_NOTIFICATIONS permission is denied. That permission only gates
+                // the status-bar notification, not the modal dialog - without this a
+                // failed install (e.g. firmware) fails completely silently.
+                if (value < 0 && !silent) {
+                    val contentText = text ?: context.getString(R.string.unexpected_error)
+                    AlertDialogQueue.showDialog(title, contentText)
+                }
+
                 if (hasPermission) {
                     val notificationManager = NotificationManagerCompat.from(context)
 
@@ -132,7 +141,6 @@ class ProgressRepository {
                             .setPriority(NotificationCompat.PRIORITY_HIGH)
                             .setProgress(0, 0, false)
                             .setOngoing(false)
-                        AlertDialogQueue.showDialog(title, contentText)
                         notificationManager.notify(requestId.toInt(), builder.build())
                     } else {
                         builder.setProgress(max.toInt(), value.toInt(), true)
