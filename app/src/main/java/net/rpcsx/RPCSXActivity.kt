@@ -1,10 +1,16 @@
 package net.rpcsx
 
+import android.content.Intent
+import android.net.Uri
 import android.os.Bundle
+import android.os.Environment
 import android.os.Handler
 import android.os.Looper
 import android.os.PowerManager
+import android.provider.DocumentsContract
 import androidx.activity.ComponentActivity
+import androidx.core.net.toUri
+import java.io.File
 import androidx.activity.OnBackPressedCallback
 import android.util.Log
 import android.view.InputDevice
@@ -34,6 +40,17 @@ class RPCSXActivity : ComponentActivity() {
     private var usesAxisR2 = false
     private var bootThread: Thread? = null
     private val inputBindings by lazy { InputBindingPrefs.loadBindings() }
+
+    private companion object {
+        // Game-reference string-extra keys accepted from external frontends, in priority order:
+        // our internal "path", our documented "net.rpcsx.GAME", then the keys other Android
+        // emulators standardised on (bootPath = DuckStation/AetherSX2; game_dir/iso_uri = aPS3e;
+        // ROM = RetroArch; AutoStartFile = Dolphin; SelectedGame = Citra; game).
+        val EXTERNAL_GAME_EXTRA_KEYS = listOf(
+            "path", "net.rpcsx.GAME", "bootPath", "game_dir", "iso_uri",
+            "ROM", "AutoStartFile", "SelectedGame", "game"
+        )
+    }
 
     // Back-button policy: during gameplay the system back button opens the
     // in-game quick (home) menu instead of exiting. Exit happens from that menu
@@ -107,7 +124,24 @@ class RPCSXActivity : ComponentActivity() {
             binding.oscToggle.setImageResource(if (binding.padOverlay.isInvisible) R.drawable.ic_osc_off else R.drawable.ic_show_osc)
         }
 
-        val gamePath = intent.getStringExtra("path")!!
+        val gamePath = resolveGamePath(intent)
+        if (gamePath == null) {
+            // No usable game reference. The app's own launch always sends one; an external
+            // app/frontend might send an empty or unrecognised intent. Open the library
+            // instead of crashing on the old getStringExtra("path")!! null-assert.
+            startActivity(Intent(this, MainActivity::class.java))
+            finish()
+            return
+        }
+
+        startBoot(gamePath)
+    }
+
+    /**
+     * Boot (or resume/switch to) a game on a background thread. Shared by the in-app launch
+     * (onCreate) and external frontend launches that reuse the singleTask instance (onNewIntent).
+     */
+    private fun startBoot(gamePath: String) {
         RPCSX.lastPlayedGame = gamePath
 
         bootThread = thread {
@@ -149,6 +183,77 @@ class RPCSXActivity : ComponentActivity() {
                 runOnUiThread { startExitWatcher() }
             }
         }
+    }
+
+    // singleTask: a frontend may launch a (possibly different) game while one runs. Re-resolve
+    // and boot; startBoot's thread kills the current game or resumes if it is the same one.
+    // Intents with no game reference are ignored (keep the running game).
+    override fun onNewIntent(intent: Intent) {
+        super.onNewIntent(intent)
+        setIntent(intent)
+        resolveGamePath(intent)?.let { startBoot(it) }
+    }
+
+    /**
+     * Resolve the game to boot from an incoming intent. Supports the app's own internal launch
+     * (the "path" string extra) AND external Android emulation frontends (Daijisho, ES-DE,
+     * Pegasus). Those launch us by explicit component with the game either as the ACTION_VIEW
+     * data URI, or in a string extra - emulators standardised on different extra keys, so we
+     * accept the common ones plus our own documented "net.rpcsx.GAME". Returns null when no
+     * usable reference is present.
+     */
+    private fun resolveGamePath(intent: Intent): String? {
+        for (key in EXTERNAL_GAME_EXTRA_KEYS) {
+            val value = intent.getStringExtra(key)
+            if (!value.isNullOrBlank()) {
+                normalizeRef(value)?.let { return it }
+            }
+        }
+        intent.data?.let { uri -> resolveUri(uri)?.let { return it } }
+        return null
+    }
+
+    /** A bare extra value may be a raw filesystem path or a URI string. */
+    private fun normalizeRef(ref: String): String? =
+        if (ref.startsWith("/")) ref else resolveUri(ref.toUri())
+
+    private fun resolveUri(uri: Uri): String? = when (uri.scheme) {
+        null -> uri.toString().takeIf { it.startsWith("/") }
+        "file" -> uri.path
+        "content" -> resolveContentUri(uri)
+        else -> uri.toString()
+    }
+
+    /**
+     * Best-effort content:// -> filesystem path. RPCSX.boot() opens a filesystem path, so we map
+     * the common Storage Access Framework case (the external-storage documents provider that
+     * Daijisho {file.uri} / ES-DE %ROMSAF% produce) back to a real path. For other providers we
+     * persist read access and return the URI string; if the core cannot open it the boot fails
+     * with a normal error dialog rather than crashing.
+     */
+    private fun resolveContentUri(uri: Uri): String? {
+        runCatching {
+            contentResolver.takePersistableUriPermission(uri, Intent.FLAG_GRANT_READ_URI_PERMISSION)
+        }
+        if (uri.authority == "com.android.externalstorage.documents") {
+            val docId = runCatching { DocumentsContract.getDocumentId(uri) }
+                .recoverCatching { DocumentsContract.getTreeDocumentId(uri) }
+                .getOrNull()
+            val parts = docId?.split(":", limit = 2)
+            if (parts != null && parts.size == 2) {
+                val (volume, relPath) = parts
+                val base = if (volume == "primary") {
+                    Environment.getExternalStorageDirectory().absolutePath
+                } else {
+                    "/storage/$volume"
+                }
+                val path = if (relPath.isEmpty()) base else "$base/$relPath"
+                if (File(path).exists()) {
+                    return path
+                }
+            }
+        }
+        return uri.toString()
     }
 
     override fun onDestroy() {

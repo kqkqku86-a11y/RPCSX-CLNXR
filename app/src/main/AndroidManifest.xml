@@ -44,10 +44,29 @@
             android:theme="@android:style/Theme.NoTitleBar.Fullscreen"
             android:screenOrientation="sensorLandscape"
             android:launchMode="singleTask"
-            android:exported="false" >
+            android:exported="true" >
+            <!-- Internal launch from the library UI (explicit class + "path" extra). -->
             <intent-filter>
                 <action android:name="rpcsx.intent.action.Emulator" />
                 <category android:name="android.intent.category.DEFAULT" />
+            </intent-filter>
+            <!-- External launch by Android emulation frontends (Daijisho, ES-DE, Pegasus).
+                 Frontends that pass the game in a string extra reach us by explicit component
+                 (exported=true) and need no filter; this VIEW filter additionally handles
+                 ACTION_VIEW launches and file-manager "Open with", scoped to PS3 disc/package
+                 file extensions so we never appear as a handler for unrelated files. -->
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data android:scheme="file" />
+                <data android:scheme="content" />
+                <data android:mimeType="*/*" />
+                <data android:host="*" />
+                <data android:pathPattern=".*\\.iso" />
+                <data android:pathPattern=".*\\.ISO" />
+                <data android:pathPattern=".*\\.pkg" />
+                <data android:pathPattern=".*\\.PKG" />
             </intent-filter>
         </activity>
 
