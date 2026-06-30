@@ -152,8 +152,14 @@ class PadOverlayDpad(
         val x = GeneralSettings["${inputId}_x"].int(area.left)
         val y = GeneralSettings["${inputId}_y"].int(area.top)
         if (scale != -1) {
-            val centerX = x + area.width() / 2
-            val centerY = y + area.height() / 2
+            // The saved x/y are the top-left of the SCALED rect. Reconstruct the center from the
+            // scaled size (computed exactly as setScale does), NOT area.width()/height() - at
+            // init() those are still the unscaled DEFAULT size. Using the default size made
+            // setScale re-derive a wrong area.left and re-persist it (lines below), drifting the
+            // pad by (scaledSize - defaultSize)/2 on every game start.
+            val scaledSize = (1024 * (scale / 100f)).roundToInt()
+            val centerX = x + scaledSize / 2
+            val centerY = y + scaledSize / 2
             setScale(scale, centerX, centerY)
         } else {
             updatePosition(x, y, true)
