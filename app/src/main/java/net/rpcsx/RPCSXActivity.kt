@@ -138,6 +138,27 @@ class RPCSXActivity : ComponentActivity() {
     }
 
     /**
+     * Boot a game path. A content:// URI pointing at an .iso is opened as a SAF fd and booted
+     * directly (no extraction) via the core's fd entry point; everything else is a filesystem
+     * path handed to the normal boot(). A fresh fd is opened on every boot because provider fds
+     * do not survive provider restarts.
+     */
+    private fun bootGamePath(gamePath: String): BootResult {
+        if (gamePath.startsWith("content://") && gamePath.substringBefore('?').endsWith(".iso", ignoreCase = true)) {
+            val uri = gamePath.toUri()
+            runCatching {
+                contentResolver.takePersistableUriPermission(uri, Intent.FLAG_GRANT_READ_URI_PERMISSION)
+            }
+            val pfd = runCatching { contentResolver.openFileDescriptor(uri, "r") }.getOrNull()
+                ?: return BootResult.InvalidFileOrFolder
+            // Native side owns the fd (detached); it closes it when the ISO device is torn down.
+            val fd = pfd.detachFd()
+            return RPCSX.bootIsoFd(fd, gamePath)
+        }
+        return RPCSX.boot(gamePath)
+    }
+
+    /**
      * Boot (or resume/switch to) a game on a background thread. Shared by the in-app launch
      * (onCreate) and external frontend launches that reuse the singleTask instance (onNewIntent).
      */
@@ -170,7 +191,7 @@ class RPCSXActivity : ComponentActivity() {
             Log.w("RPCSX State", RPCSX.getState().name)
             RPCSX.activeGame.value = gamePath
 
-            val bootResult = RPCSX.boot(gamePath)
+            val bootResult = bootGamePath(gamePath)
             if (bootResult != BootResult.NoErrors) {
                 AlertDialogQueue.showDialog(
                     getString(R.string.failed_to_boot),

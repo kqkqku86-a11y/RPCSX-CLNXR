@@ -27,6 +27,9 @@ struct RPCSXApi {
                           long progressId);
   void (*shutdown)();
   int (*boot)(std::string_view path_);
+  // Optional (newer cores only - may be null after dlsym on older .so)
+  int (*bootIsoFd)(int fd, std::string_view displayPath);
+  jstring (*getIsoGameInfoFd)(JNIEnv *env, int fd);
   int (*getState)();
   void (*kill)();
   void (*resume)();
@@ -125,6 +128,8 @@ struct RPCSXLibrary : RPCSXApi {
     result.collectGameInfo = reinterpret_cast<decltype(collectGameInfo)>(dlsym(handle, "_rpcsx_collectGameInfo"));
     result.shutdown = reinterpret_cast<decltype(shutdown)>(dlsym(handle, "_rpcsx_shutdown"));
     result.boot = reinterpret_cast<decltype(boot)>(dlsym(handle, "_rpcsx_boot"));
+    result.bootIsoFd = reinterpret_cast<decltype(bootIsoFd)>(dlsym(handle, "_rpcsx_bootIsoFd"));
+    result.getIsoGameInfoFd = reinterpret_cast<decltype(getIsoGameInfoFd)>(dlsym(handle, "_rpcsx_getIsoGameInfoFd"));
     result.getState = reinterpret_cast<decltype(getState)>(dlsym(handle, "_rpcsx_getState"));
     result.kill = reinterpret_cast<decltype(kill)>(dlsym(handle, "_rpcsx_kill"));
     result.resume = reinterpret_cast<decltype(resume)>(dlsym(handle, "_rpcsx_resume"));
@@ -264,6 +269,22 @@ extern "C" JNIEXPORT jint JNICALL Java_net_rpcsx_RPCSX_boot(JNIEnv *env,
                                                             jobject,
                                                             jstring jpath) {
   return rpcsxLib.boot(unwrap(env, jpath));
+}
+
+extern "C" JNIEXPORT jint JNICALL Java_net_rpcsx_RPCSX_bootIsoFd(
+    JNIEnv *env, jobject, jint fd, jstring jdisplayPath) {
+  if (rpcsxLib.bootIsoFd == nullptr) {
+    return 4; // game_boot_result::invalid_file_or_folder on old cores
+  }
+  return rpcsxLib.bootIsoFd(fd, unwrap(env, jdisplayPath));
+}
+
+extern "C" JNIEXPORT jstring JNICALL Java_net_rpcsx_RPCSX_getIsoGameInfoFd(
+    JNIEnv *env, jobject, jint fd) {
+  if (rpcsxLib.getIsoGameInfoFd == nullptr) {
+    return nullptr;
+  }
+  return rpcsxLib.getIsoGameInfoFd(env, fd);
 }
 
 extern "C" JNIEXPORT jint JNICALL Java_net_rpcsx_RPCSX_getState(JNIEnv *env,

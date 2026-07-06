@@ -57,6 +57,7 @@ enum class BootResult
     DecryptionError,
     FileCreationError,
     FirmwareMissing,
+    FirmwareVersion,
     UnsupportedDiscType,
     SavestateCorrupted,
     SavestateVersionUnsupported,
@@ -80,6 +81,11 @@ class RPCSX {
     external fun install(fd: Int, progressId: Long): Boolean
     external fun installKey(fd: Int, requestId: Long, gamePath: String): Boolean
     external fun boot(path: String): Int
+    // Boot an ISO from a SAF fd (content:// URIs with no real filesystem path).
+    // Returns game_boot_result ordinal; InvalidFileOrFolder if the core is too old.
+    external fun bootIsoFd(fd: Int, displayPath: String): Int
+    // Packed "titleId|name|version" for an ISO fd, or null.
+    external fun getIsoGameInfoFd(fd: Int): String?
     external fun surfaceEvent(surface: Surface, event: Int): Boolean
     external fun usbDeviceEvent(fd: Int, vendorId: Int, productId: Int, event: Int): Boolean
     external fun processCompilationQueue(): Boolean
@@ -153,6 +159,10 @@ class RPCSX {
 
         fun boot(path: String): BootResult {
             return BootResult.fromInt(instance.boot(path))
+        }
+
+        fun bootIsoFd(fd: Int, displayPath: String): BootResult {
+            return BootResult.fromInt(instance.bootIsoFd(fd, displayPath))
         }
 
         fun updateState() {
