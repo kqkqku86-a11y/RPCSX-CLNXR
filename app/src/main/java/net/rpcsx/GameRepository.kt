@@ -12,6 +12,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
+import net.rpcsx.utils.GeneralSettings
 import java.io.File
 import java.security.InvalidParameterException
 import kotlin.concurrent.thread
@@ -98,6 +99,11 @@ class GameRepository {
     companion object {
         private val instance = GameRepository()
 
+        // GeneralSettings key: real filesystem path of the user-chosen games folder,
+        // scanned in place (no copying) so ISOs and folder-format games there play
+        // directly. Set from Settings; empty/unset = no extra scan.
+        const val GAMES_FOLDER_KEY = "games_folder_path"
+
         // Compose-observable, read-only view of the games list (reading it inside a composable
         // tracks the underlying SnapshotStateList). Used by the install keep-screen-on overlay to
         // detect active Install progress. Read-only: callers must not mutate it.
@@ -172,6 +178,12 @@ class GameRepository {
                 RPCSX.rootDirectory + "/config/dev_hdd0/game", -1
             )
             RPCSX.instance.collectGameInfo(RPCSX.rootDirectory + "/config/games", -1)
+
+            // User-chosen games folder, scanned in place (no copying). add() de-dupes by
+            // path, so a game already installed in dev_hdd0 will not double-list.
+            (GeneralSettings[GAMES_FOLDER_KEY] as? String)
+                ?.takeIf { it.isNotBlank() && File(it).isDirectory }
+                ?.let { RPCSX.instance.collectGameInfo(it, -1) }
         }
         
         @Keep

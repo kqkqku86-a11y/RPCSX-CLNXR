@@ -76,8 +76,49 @@ fun ClankerSettingsScreen(
     navigateBack: () -> Unit,
     navigateTo: (path: String) -> Unit,
 ) {
+    val context = LocalContext.current
+    var gamesFolder by remember {
+        mutableStateOf(GeneralSettings[net.rpcsx.GameRepository.GAMES_FOLDER_KEY] as? String)
+    }
+
+    // Pick a folder on internal storage / SD card and scan it IN PLACE (no copying):
+    // ISOs and folder-format PS3 games found there play directly. Needs a real
+    // filesystem path (SAF folders that do not map to /storage are rejected).
+    val gamesFolderPicker = androidx.activity.compose.rememberLauncherForActivityResult(
+        androidx.activity.result.contract.ActivityResultContracts.OpenDocumentTree()
+    ) { uri: android.net.Uri? ->
+        if (uri != null) {
+            val real = net.rpcsx.utils.SafPath.resolveTreeUriToRealPath(context, uri)
+            if (real == null) {
+                net.rpcsx.dialogs.AlertDialogQueue.showDialog(
+                    context.getString(R.string.games_folder_unsupported_title),
+                    context.getString(R.string.games_folder_unsupported_message)
+                )
+            } else {
+                GeneralSettings.setValue(net.rpcsx.GameRepository.GAMES_FOLDER_KEY, real)
+                gamesFolder = real
+                net.rpcsx.GameRepository.queueRefresh()
+            }
+        }
+    }
+
     ClankerScaffold(stringResource(R.string.clanker_settings), navigateBack) { contentPadding ->
         LazyColumn(modifier = Modifier.fillMaxSize().padding(contentPadding)) {
+            item(key = "clanker_games_folder") {
+                HomePreference(
+                    title = stringResource(R.string.games_folder),
+                    icon = { PreferenceIcon(icon = painterResource(R.drawable.ic_folder)) },
+                    description = gamesFolder?.takeIf { it.isNotBlank() }
+                        ?: stringResource(R.string.games_folder_description),
+                    onClick = { gamesFolderPicker.launch(null) },
+                    onLongClick = {
+                        // Long-press clears the games folder.
+                        GeneralSettings.setValue(net.rpcsx.GameRepository.GAMES_FOLDER_KEY, null)
+                        gamesFolder = null
+                        net.rpcsx.GameRepository.queueRefresh()
+                    }
+                )
+            }
             item(key = "clanker_themes") {
                 HomePreference(
                     title = stringResource(R.string.clanker_themes),

@@ -3,14 +3,11 @@ package net.rpcsx
 import android.content.Intent
 import android.net.Uri
 import android.os.Bundle
-import android.os.Environment
 import android.os.Handler
 import android.os.Looper
 import android.os.PowerManager
-import android.provider.DocumentsContract
 import androidx.activity.ComponentActivity
 import androidx.core.net.toUri
-import java.io.File
 import androidx.activity.OnBackPressedCallback
 import android.util.Log
 import android.view.InputDevice
@@ -253,28 +250,9 @@ class RPCSXActivity : ComponentActivity() {
      * with a normal error dialog rather than crashing.
      */
     private fun resolveContentUri(uri: Uri): String? {
-        runCatching {
-            contentResolver.takePersistableUriPermission(uri, Intent.FLAG_GRANT_READ_URI_PERMISSION)
-        }
-        if (uri.authority == "com.android.externalstorage.documents") {
-            val docId = runCatching { DocumentsContract.getDocumentId(uri) }
-                .recoverCatching { DocumentsContract.getTreeDocumentId(uri) }
-                .getOrNull()
-            val parts = docId?.split(":", limit = 2)
-            if (parts != null && parts.size == 2) {
-                val (volume, relPath) = parts
-                val base = if (volume == "primary") {
-                    Environment.getExternalStorageDirectory().absolutePath
-                } else {
-                    "/storage/$volume"
-                }
-                val path = if (relPath.isEmpty()) base else "$base/$relPath"
-                if (File(path).exists()) {
-                    return path
-                }
-            }
-        }
-        return uri.toString()
+        // Prefer a real filesystem path (the core opens paths, not SAF); fall back to the raw
+        // URI string for providers we cannot map, letting the core fail with a normal dialog.
+        return net.rpcsx.utils.SafPath.resolveTreeUriToRealPath(this, uri) ?: uri.toString()
     }
 
     override fun onDestroy() {
