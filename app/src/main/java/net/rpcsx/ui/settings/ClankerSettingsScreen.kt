@@ -97,7 +97,20 @@ fun ClankerSettingsScreen(
             } else {
                 GeneralSettings.setValue(net.rpcsx.GameRepository.GAMES_FOLDER_KEY, real)
                 gamesFolder = real
-                net.rpcsx.GameRepository.queueRefresh()
+
+                // The native core reads the folder by raw path, which needs all-files
+                // access on Android 11+. Prompt the user to grant it if missing; the
+                // scan runs (and finds games) once granted, on the next refresh.
+                if (!net.rpcsx.utils.StorageAccess.hasAllFilesAccess(context)) {
+                    net.rpcsx.dialogs.AlertDialogQueue.showDialog(
+                        title = context.getString(R.string.games_folder_permission_title),
+                        message = context.getString(R.string.games_folder_permission_message),
+                        onConfirm = { net.rpcsx.utils.StorageAccess.requestAllFilesAccess(context) },
+                        confirmText = context.getString(R.string.games_folder_permission_grant)
+                    )
+                } else {
+                    net.rpcsx.GameRepository.queueRefresh()
+                }
             }
         }
     }

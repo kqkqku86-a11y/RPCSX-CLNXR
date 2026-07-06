@@ -9,6 +9,15 @@
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE"/>
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_SPECIAL_USE"/>
     <uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES"/>
+    <!-- All-files access: the native core plays games (folder dumps and ISOs) directly from
+         a user-chosen storage location by raw filesystem path. Scoped storage otherwise
+         blocks the core (and the Kotlin scan) from reading anything outside the app's own
+         dirs. MANAGE_EXTERNAL_STORAGE is API 30+; on API 29 requestLegacyExternalStorage +
+         READ_EXTERNAL_STORAGE gives the same raw-path access. Granted by the user in system
+         settings, only when they set a Games folder. -->
+    <uses-permission android:name="android.permission.MANAGE_EXTERNAL_STORAGE"
+        tools:ignore="ScopedStorage" />
+    <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" android:maxSdkVersion="32" />
 
     <uses-feature android:name="android.hardware.gamepad" android:required="false" />
     <uses-feature android:name="android.hardware.touchscreen" android:required="false" />
@@ -19,6 +28,7 @@
         android:name=".RpcsxApplication"
         android:allowBackup="true"
         android:allowNativeHeapPointerTagging="false"
+        android:requestLegacyExternalStorage="true"
         android:dataExtractionRules="@xml/data_extraction_rules"
         android:fullBackupContent="@xml/backup_rules"
         android:icon="@mipmap/ic_rpcsx"
