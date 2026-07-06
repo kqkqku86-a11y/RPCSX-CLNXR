@@ -270,7 +270,11 @@ fun GameItem(game: Game, onConfigure: () -> Unit = {}) {
                                 path.deleteRecursively()
                                 FileUtil.deleteCache(
                                     context,
-                                    game.info.path.trimEnd('/').substringAfterLast("/")
+                                    // The core keys its cache by title id. For internal games
+                                    // that equals the last path component, but a games-folder
+                                    // entry's last component is the file name - use titleId.
+                                    game.info.titleId?.takeIf { it.isNotBlank() }
+                                        ?: game.info.path.trimEnd('/').substringAfterLast("/")
                                 ) { success ->
                                     if (!success) {
                                         AlertDialogQueue.showDialog(
@@ -311,7 +315,8 @@ fun GameItem(game: Game, onConfigure: () -> Unit = {}) {
                             title = context.getString(R.string.clear_cache),
                             message = context.getString(R.string.clear_cache_description),
                             onConfirm = {
-                                FileUtil.deleteCache(context, game.info.path.trimEnd('/').substringAfterLast("/")) { success ->
+                                FileUtil.deleteCache(context, game.info.titleId?.takeIf { it.isNotBlank() }
+                                    ?: game.info.path.trimEnd('/').substringAfterLast("/")) { success ->
                                     AlertDialogQueue.showDialog(
                                         title = context.getString(if (success) R.string.clear_cache else R.string.unexpected_error),
                                         message = context.getString(if (success) R.string.cache_cleared else R.string.failed_to_delete_game_cache),
