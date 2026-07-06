@@ -237,8 +237,7 @@
     <string name="games_folder_permission_title">Storage access needed</string>
     <string name="games_folder_permission_message">To play games directly from this folder, RPCSX needs access to all files. Grant it on the next screen, then pull down on the games list to refresh.</string>
     <string name="games_folder_permission_grant">Grant access</string>
-    <string name="delete_external_game_title">Delete from storage?</string>
-    <string name="delete_external_game_message">This permanently deletes the game from your storage folder and cannot be undone:\n\n%1$s</string>
+    <string name="remove_from_library">Remove from library</string>
 
     <!-- SliderPreference -->
     <string name="slider_value_supporting">Value must be a multiple of step size %1$d within %2$.0f to %3$.0f</string>

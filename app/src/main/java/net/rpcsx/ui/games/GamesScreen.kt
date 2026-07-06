@@ -256,53 +256,44 @@ fun GameItem(game: Game, onConfigure: () -> Unit = {}) {
                     }
                 )
                 DropdownMenuItem(
-                    text = { Text(stringResource(R.string.delete)) },
+                    // A game installed into RPCSX's own storage can be fully deleted; a
+                    // games-folder entry is the user's own file we only scan, so its action
+                    // removes the library entry + RPCSX's cache, never the source file.
+                    text = {
+                        Text(stringResource(
+                            if (game.info.path.startsWith(RPCSX.rootDirectory)) R.string.delete
+                            else R.string.remove_from_library
+                        ))
+                    },
                     leadingIcon = { Icon(painter = painterResource(id = R.drawable.ic_delete), contentDescription = null) },
                     onClick = {
                         menuExpanded.value = false
 
-                        val performDelete = {
-                            val deleteProgress = ProgressRepository.create(context, context.getString(R.string.deleting_game))
-                            game.addProgress(GameProgress(deleteProgress, GameProgressType.Compile))
-                            ProgressRepository.onProgressEvent(deleteProgress, 1, 0L)
+                        val isInternal = game.info.path.startsWith(RPCSX.rootDirectory)
+                        // Core caches by title id (path last-component == title id only for
+                        // internal games; a games-folder entry's is the file name).
+                        val cacheId = game.info.titleId?.takeIf { it.isNotBlank() }
+                            ?: game.info.path.trimEnd('/').substringAfterLast("/")
+
+                        val deleteProgress = ProgressRepository.create(context, context.getString(R.string.deleting_game))
+                        game.addProgress(GameProgress(deleteProgress, GameProgressType.Compile))
+                        ProgressRepository.onProgressEvent(deleteProgress, 1, 0L)
+
+                        // HARD RULE: never delete the user's source ISO / game folder. Only
+                        // remove RPCSX's OWN installed copy, and only when the game actually
+                        // lives inside RPCSX's storage.
+                        if (isInternal) {
                             val path = File(game.info.path)
                             if (path.exists()) {
                                 path.deleteRecursively()
-                                FileUtil.deleteCache(
-                                    context,
-                                    // The core keys its cache by title id. For internal games
-                                    // that equals the last path component, but a games-folder
-                                    // entry's last component is the file name - use titleId.
-                                    game.info.titleId?.takeIf { it.isNotBlank() }
-                                        ?: game.info.path.trimEnd('/').substringAfterLast("/")
-                                ) { success ->
-                                    if (!success) {
-                                        AlertDialogQueue.showDialog(
-                                            title = context.getString(R.string.unexpected_error),
-                                            message = context.getString(R.string.failed_to_delete_game_cache),
-                                            confirmText = context.getString(R.string.close),
-                                            dismissText = ""
-                                        )
-                                    }
-                                    ProgressRepository.onProgressEvent(deleteProgress, 100, 100)
-                                    GameRepository.remove(game)
-                                }
                             }
                         }
 
-                        // A game outside the app's own storage lives in the user's chosen
-                        // Games folder - deleting it here permanently erases their real file,
-                        // so require explicit confirmation. Internal (app-installed) copies
-                        // keep the direct one-tap delete.
-                        if (game.info.path.startsWith(RPCSX.rootDirectory)) {
-                            performDelete()
-                        } else {
-                            AlertDialogQueue.showDialog(
-                                title = context.getString(R.string.delete_external_game_title),
-                                message = context.getString(R.string.delete_external_game_message, game.info.path),
-                                onConfirm = performDelete,
-                                confirmText = context.getString(R.string.delete)
-                            )
+                        // Clear RPCSX's cache for the game and drop the library entry. A
+                        // missing cache is not an error here (game may never have run).
+                        FileUtil.deleteCache(context, cacheId) { _ ->
+                            ProgressRepository.onProgressEvent(deleteProgress, 100, 100)
+                            GameRepository.remove(game)
                         }
                     }
                 )
