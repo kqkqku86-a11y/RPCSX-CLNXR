@@ -260,27 +260,45 @@ fun GameItem(game: Game, onConfigure: () -> Unit = {}) {
                     leadingIcon = { Icon(painter = painterResource(id = R.drawable.ic_delete), contentDescription = null) },
                     onClick = {
                         menuExpanded.value = false
-                        val deleteProgress = ProgressRepository.create(context, context.getString(R.string.deleting_game))
-                        game.addProgress(GameProgress(deleteProgress, GameProgressType.Compile))
-                        ProgressRepository.onProgressEvent(deleteProgress, 1, 0L)
-                        val path = File(game.info.path)
-                        if (path.exists()) {
-                            path.deleteRecursively()
-                            FileUtil.deleteCache(
-                                context,
-                                game.info.path.trimEnd('/').substringAfterLast("/")
-                            ) { success ->
-                                if (!success) {
-                                    AlertDialogQueue.showDialog(
-                                        title = context.getString(R.string.unexpected_error),
-                                        message = context.getString(R.string.failed_to_delete_game_cache),
-                                        confirmText = context.getString(R.string.close),
-                                        dismissText = ""
-                                    )
+
+                        val performDelete = {
+                            val deleteProgress = ProgressRepository.create(context, context.getString(R.string.deleting_game))
+                            game.addProgress(GameProgress(deleteProgress, GameProgressType.Compile))
+                            ProgressRepository.onProgressEvent(deleteProgress, 1, 0L)
+                            val path = File(game.info.path)
+                            if (path.exists()) {
+                                path.deleteRecursively()
+                                FileUtil.deleteCache(
+                                    context,
+                                    game.info.path.trimEnd('/').substringAfterLast("/")
+                                ) { success ->
+                                    if (!success) {
+                                        AlertDialogQueue.showDialog(
+                                            title = context.getString(R.string.unexpected_error),
+                                            message = context.getString(R.string.failed_to_delete_game_cache),
+                                            confirmText = context.getString(R.string.close),
+                                            dismissText = ""
+                                        )
+                                    }
+                                    ProgressRepository.onProgressEvent(deleteProgress, 100, 100)
+                                    GameRepository.remove(game)
                                 }
-                                ProgressRepository.onProgressEvent(deleteProgress, 100, 100)
-                                GameRepository.remove(game)
                             }
+                        }
+
+                        // A game outside the app's own storage lives in the user's chosen
+                        // Games folder - deleting it here permanently erases their real file,
+                        // so require explicit confirmation. Internal (app-installed) copies
+                        // keep the direct one-tap delete.
+                        if (game.info.path.startsWith(RPCSX.rootDirectory)) {
+                            performDelete()
+                        } else {
+                            AlertDialogQueue.showDialog(
+                                title = context.getString(R.string.delete_external_game_title),
+                                message = context.getString(R.string.delete_external_game_message, game.info.path),
+                                onConfirm = performDelete,
+                                confirmText = context.getString(R.string.delete)
+                            )
                         }
                     }
                 )
