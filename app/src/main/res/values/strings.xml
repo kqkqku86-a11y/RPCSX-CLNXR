@@ -238,6 +238,9 @@
     <string name="games_folder_permission_message">To play games from a folder you choose, RPCSX needs permission to read your files. Grant it, then pick your folder.</string>
     <string name="games_folder_permission_grant">Grant access</string>
     <string name="remove_from_library">Remove from library</string>
+    <string name="sort_games">Sort games</string>
+    <string name="sort_last_played">Last played</string>
+    <string name="sort_by_name">Name (A–Z)</string>
 
     <!-- SliderPreference -->
     <string name="slider_value_supporting">Value must be a multiple of step size %1$d within %2$.0f to %3$.0f</string>

@@ -71,6 +71,8 @@ import androidx.navigation.compose.rememberNavController
 import kotlinx.coroutines.launch
 import net.rpcsx.BuildConfig
 import net.rpcsx.EmulatorState
+import net.rpcsx.utils.GameSort
+import net.rpcsx.utils.GameSortMode
 import net.rpcsx.FirmwareRepository
 import net.rpcsx.PrecompilerService
 import net.rpcsx.PrecompilerServiceAction
@@ -814,8 +816,38 @@ fun GamesDestination(
                                 )
                             }
                         }
-                        // Box-art tile toggle removed for now (cover loading was
-                        // unreliable); the grid shows the PS3 icon. See TileDisplay.
+                        // Library sort order (persisted via GameSort; the grid re-sorts
+                        // live). Fixes the "order looks random after a rescan" complaint -
+                        // scan order is no longer the display order.
+                        Box {
+                            var sortMenu by remember { mutableStateOf(false) }
+                            IconButton(onClick = { sortMenu = true }) {
+                                Icon(
+                                    painter = painterResource(R.drawable.ic_sort),
+                                    contentDescription = stringResource(R.string.sort_games)
+                                )
+                            }
+                            DropdownMenu(expanded = sortMenu, onDismissRequest = { sortMenu = false }) {
+                                DropdownMenuItem(
+                                    text = { Text(stringResource(R.string.sort_last_played)) },
+                                    trailingIcon = {
+                                        if (GameSort.mode == GameSortMode.LAST_PLAYED) {
+                                            Icon(painter = painterResource(R.drawable.ic_check), contentDescription = null)
+                                        }
+                                    },
+                                    onClick = { GameSort.mode = GameSortMode.LAST_PLAYED; sortMenu = false }
+                                )
+                                DropdownMenuItem(
+                                    text = { Text(stringResource(R.string.sort_by_name)) },
+                                    trailingIcon = {
+                                        if (GameSort.mode == GameSortMode.NAME) {
+                                            Icon(painter = painterResource(R.drawable.ic_check), contentDescription = null)
+                                        }
+                                    },
+                                    onClick = { GameSort.mode = GameSortMode.NAME; sortMenu = false }
+                                )
+                            }
+                        }
                     }
                 )
             },

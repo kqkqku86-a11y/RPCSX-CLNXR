@@ -304,6 +304,10 @@ class GameRepository {
         }
 
         fun onBoot(game: Game) {
+            // Record the play unconditionally (independent of list position): the
+            // "Last played" sort reads this, and it survives refresh()'s clear+rescan
+            // where a per-entry field would not.
+            net.rpcsx.utils.GamePlayHistory.record(game.info.path)
             synchronized(instance) {
                 if (instance.games.firstOrNull() != game) {
                     instance.games.remove(game)

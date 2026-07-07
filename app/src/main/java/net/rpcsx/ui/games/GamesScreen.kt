@@ -39,7 +39,11 @@ import androidx.compose.material3.pulltorefresh.PullToRefreshDefaults
 import androidx.compose.material3.pulltorefresh.rememberPullToRefreshState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
+import net.rpcsx.utils.GamePlayHistory
+import net.rpcsx.utils.GameSort
+import net.rpcsx.utils.GameSortMode
 import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -555,6 +559,26 @@ fun GameItem(game: Game, onConfigure: () -> Unit = {}) {
 fun GamesScreen(navigateToConfig: (Game) -> Unit = {}) {
     val context = LocalContext.current
     val games = remember { GameRepository.list() }
+    // Displayed order = user-chosen sort applied to the (scan-order) library list.
+    // derivedStateOf re-runs when the list changes, the sort mode changes, or a name /
+    // last-played timestamp changes (all read below are Compose snapshot state), so the
+    // grid re-sorts live. Active install placeholders ("$") stay pinned to the front.
+    val sortedGames by remember {
+        derivedStateOf {
+            val (pending, real) = games.toList().partition { it.info.path == "$" }
+            val ordered = when (GameSort.mode) {
+                GameSortMode.NAME -> real.sortedBy {
+                    (it.info.name.value?.takeIf { n -> n.isNotBlank() }
+                        ?: it.info.titleId.value ?: it.info.path).lowercase()
+                }
+                GameSortMode.LAST_PLAYED -> real.sortedWith(
+                    compareByDescending<Game> { GamePlayHistory.lastPlayed(it.info.path) }
+                        .thenBy { (it.info.name.value ?: it.info.path).lowercase() }
+                )
+            }
+            pending + ordered
+        }
+    }
     val isRefreshing by remember { GameRepository.isRefreshing }
     val state = rememberPullToRefreshState()
     var uiUpdateVersion by remember { mutableStateOf<String?>(null) }
@@ -801,8 +825,8 @@ fun GamesScreen(navigateToConfig: (Game) -> Unit = {}) {
             horizontalArrangement = Arrangement.Center,
             modifier = Modifier.fillMaxSize()
         ) {
-            items(count = games.size, key = { index -> games[index].info.path }) { index ->
-                GameItem(games[index], onConfigure = { navigateToConfig(games[index]) })
+            items(count = sortedGames.size, key = { index -> sortedGames[index].info.path }) { index ->
+                GameItem(sortedGames[index], onConfigure = { navigateToConfig(sortedGames[index]) })
             }
         }
     }
