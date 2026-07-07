@@ -272,7 +272,7 @@ fun GameItem(game: Game, onConfigure: () -> Unit = {}) {
                         val isInternal = game.info.path.startsWith(RPCSX.rootDirectory)
                         // Core caches by title id (path last-component == title id only for
                         // internal games; a games-folder entry's is the file name).
-                        val cacheId = game.info.titleId?.takeIf { it.isNotBlank() }
+                        val cacheId = game.info.titleId.value?.takeIf { it.isNotBlank() }
                             ?: game.info.path.trimEnd('/').substringAfterLast("/")
 
                         val deleteProgress = ProgressRepository.create(context, context.getString(R.string.deleting_game))
@@ -306,7 +306,7 @@ fun GameItem(game: Game, onConfigure: () -> Unit = {}) {
                             title = context.getString(R.string.clear_cache),
                             message = context.getString(R.string.clear_cache_description),
                             onConfirm = {
-                                FileUtil.deleteCache(context, game.info.titleId?.takeIf { it.isNotBlank() }
+                                FileUtil.deleteCache(context, game.info.titleId.value?.takeIf { it.isNotBlank() }
                                     ?: game.info.path.trimEnd('/').substringAfterLast("/")) { success ->
                                     AlertDialogQueue.showDialog(
                                         title = context.getString(if (success) R.string.clear_cache else R.string.unexpected_error),
