@@ -4,6 +4,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.snapshots.SnapshotStateMap
 import androidx.compose.runtime.mutableStateMapOf
 import kotlinx.serialization.json.Json
+import net.rpcsx.utils.GeneralSettings.boolean
 import net.rpcsx.utils.GeneralSettings.string
 
 /** How the library grid is ordered. Persisted; the grid observes [GameSort.mode]. */
@@ -58,4 +59,33 @@ object GamePlayHistory {
         history[path] = System.currentTimeMillis()
         runCatching { GeneralSettings[KEY] = Json.encodeToString(history.toMap()) }
     }
+}
+
+/**
+ * Library visibility filter. Two orthogonal, persisted, Compose-observable axes so a
+ * multi-select stays unambiguous:
+ *  - SOURCE: [showInstalled] (internal copies under RPCSX.rootDirectory) and
+ *    [showGamesFolder] (everything else = the user's games folder: ISOs + folder games).
+ *    A game passes if its own source is enabled; both on (default) = every source.
+ *  - STATE: [onlyPlayed] further restricts to games that have been booted at least once
+ *    (per [GamePlayHistory]) - "readily playable".
+ * The rootDirectory-vs-external decision is done by the caller (it holds RPCSX); this
+ * object is pure state, mirroring GameSort / GameViewTheme.
+ */
+object GameFilter {
+    private val _installed = mutableStateOf(GeneralSettings["game_filter_installed"].boolean(true))
+    private val _folder = mutableStateOf(GeneralSettings["game_filter_folder"].boolean(true))
+    private val _onlyPlayed = mutableStateOf(GeneralSettings["game_filter_only_played"].boolean(false))
+
+    var showInstalled: Boolean
+        get() = _installed.value
+        set(v) { _installed.value = v; GeneralSettings["game_filter_installed"] = v }
+
+    var showGamesFolder: Boolean
+        get() = _folder.value
+        set(v) { _folder.value = v; GeneralSettings["game_filter_folder"] = v }
+
+    var onlyPlayed: Boolean
+        get() = _onlyPlayed.value
+        set(v) { _onlyPlayed.value = v; GeneralSettings["game_filter_only_played"] = v }
 }

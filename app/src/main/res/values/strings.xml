@@ -241,6 +241,11 @@
     <string name="sort_games">Sort games</string>
     <string name="sort_last_played">Last played</string>
     <string name="sort_by_name">Name (A–Z)</string>
+    <string name="filter_games">Filter games</string>
+    <string name="filter_installed">Installed games</string>
+    <string name="filter_games_folder">Games folder</string>
+    <string name="filter_only_played">Only played</string>
+    <string name="filter_no_matches">No games match the current filter</string>
 
     <!-- SliderPreference -->
     <string name="slider_value_supporting">Value must be a multiple of step size %1$d within %2$.0f to %3$.0f</string>

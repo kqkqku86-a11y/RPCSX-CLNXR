@@ -31,6 +31,7 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.CenterAlignedTopAppBar
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.DrawerValue
+import androidx.compose.material3.Checkbox
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -71,6 +72,7 @@ import androidx.navigation.compose.rememberNavController
 import kotlinx.coroutines.launch
 import net.rpcsx.BuildConfig
 import net.rpcsx.EmulatorState
+import net.rpcsx.utils.GameFilter
 import net.rpcsx.utils.GameSort
 import net.rpcsx.utils.GameSortMode
 import net.rpcsx.FirmwareRepository
@@ -845,6 +847,36 @@ fun GamesDestination(
                                         }
                                     },
                                     onClick = { GameSort.mode = GameSortMode.NAME; sortMenu = false }
+                                )
+                            }
+                        }
+                        // Library filter (multi-select): which sources to show, and an
+                        // optional "only played" restriction. Items toggle in place and
+                        // keep the menu open. Persisted via GameFilter; grid re-filters live.
+                        Box {
+                            var filterMenu by remember { mutableStateOf(false) }
+                            IconButton(onClick = { filterMenu = true }) {
+                                Icon(
+                                    painter = painterResource(R.drawable.tune),
+                                    contentDescription = stringResource(R.string.filter_games)
+                                )
+                            }
+                            DropdownMenu(expanded = filterMenu, onDismissRequest = { filterMenu = false }) {
+                                DropdownMenuItem(
+                                    text = { Text(stringResource(R.string.filter_installed)) },
+                                    leadingIcon = { Checkbox(checked = GameFilter.showInstalled, onCheckedChange = null) },
+                                    onClick = { GameFilter.showInstalled = !GameFilter.showInstalled }
+                                )
+                                DropdownMenuItem(
+                                    text = { Text(stringResource(R.string.filter_games_folder)) },
+                                    leadingIcon = { Checkbox(checked = GameFilter.showGamesFolder, onCheckedChange = null) },
+                                    onClick = { GameFilter.showGamesFolder = !GameFilter.showGamesFolder }
+                                )
+                                HorizontalDivider()
+                                DropdownMenuItem(
+                                    text = { Text(stringResource(R.string.filter_only_played)) },
+                                    leadingIcon = { Checkbox(checked = GameFilter.onlyPlayed, onCheckedChange = null) },
+                                    onClick = { GameFilter.onlyPlayed = !GameFilter.onlyPlayed }
                                 )
                             }
                         }

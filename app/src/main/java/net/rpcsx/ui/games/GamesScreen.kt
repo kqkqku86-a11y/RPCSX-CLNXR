@@ -22,7 +22,9 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.wrapContentHeight
 import androidx.compose.foundation.lazy.grid.GridCells
+import androidx.compose.foundation.lazy.grid.GridItemSpan
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Card
 import androidx.compose.material3.CircularProgressIndicator
@@ -41,6 +43,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
+import net.rpcsx.utils.GameFilter
 import net.rpcsx.utils.GamePlayHistory
 import net.rpcsx.utils.GameSort
 import net.rpcsx.utils.GameSortMode
@@ -566,12 +569,20 @@ fun GamesScreen(navigateToConfig: (Game) -> Unit = {}) {
     val sortedGames by remember {
         derivedStateOf {
             val (pending, real) = games.toList().partition { it.info.path == "$" }
+            // Filter by source (installed vs games folder) and, optionally, play state.
+            // "$" install placeholders bypass the filter (always shown while installing).
+            val filtered = real.filter { game ->
+                val installed = game.info.path.startsWith(RPCSX.rootDirectory)
+                val sourceOk = if (installed) GameFilter.showInstalled else GameFilter.showGamesFolder
+                val playedOk = !GameFilter.onlyPlayed || GamePlayHistory.lastPlayed(game.info.path) > 0L
+                sourceOk && playedOk
+            }
             val ordered = when (GameSort.mode) {
-                GameSortMode.NAME -> real.sortedBy {
+                GameSortMode.NAME -> filtered.sortedBy {
                     (it.info.name.value?.takeIf { n -> n.isNotBlank() }
                         ?: it.info.titleId.value ?: it.info.path).lowercase()
                 }
-                GameSortMode.LAST_PLAYED -> real.sortedWith(
+                GameSortMode.LAST_PLAYED -> filtered.sortedWith(
                     compareByDescending<Game> { GamePlayHistory.lastPlayed(it.info.path) }
                         .thenBy { (it.info.name.value ?: it.info.path).lowercase() }
                 )
@@ -825,6 +836,22 @@ fun GamesScreen(navigateToConfig: (Game) -> Unit = {}) {
             horizontalArrangement = Arrangement.Center,
             modifier = Modifier.fillMaxSize()
         ) {
+            // Filter hid every real game (library isn't actually empty) - say so, so it
+            // doesn't read as data loss.
+            if (sortedGames.isEmpty() && games.any { it.info.path != "$" }) {
+                item(span = { GridItemSpan(maxLineSpan) }) {
+                    Box(
+                        modifier = Modifier.fillMaxWidth().padding(32.dp),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Text(
+                            text = stringResource(R.string.filter_no_matches),
+                            textAlign = TextAlign.Center,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                }
+            }
             items(count = sortedGames.size, key = { index -> sortedGames[index].info.path }) { index ->
                 GameItem(sortedGames[index], onConfigure = { navigateToConfig(sortedGames[index]) })
             }
