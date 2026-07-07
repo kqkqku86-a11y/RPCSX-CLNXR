@@ -29,7 +29,10 @@ data class GameInfo @Keep @JvmOverloads constructor(
     var iconPath: String? = null,
     var gameFlags: Int = 0,
     var version: String? = null,
-    var titleId: String? = null
+    var titleId: String? = null,
+    // PARAM.SFO CATEGORY ("DG" disc game, "HG" HDD game, "GD" disc-game update,
+    // ...). Set by the native scan; drives cross-source de-duplication in add().
+    var category: String? = null
 )
 
 data class GameInfoStore(
@@ -38,7 +41,8 @@ data class GameInfoStore(
     val iconPath: MutableState<String?> = mutableStateOf(null),
     val gameFlags: MutableIntState = mutableIntStateOf(0),
     val version: MutableState<String?> = mutableStateOf(null),
-    val titleId: MutableState<String?> = mutableStateOf(null)
+    val titleId: MutableState<String?> = mutableStateOf(null),
+    val category: MutableState<String?> = mutableStateOf(null)
 )
 
 enum class GameProgressType {
@@ -80,7 +84,8 @@ private fun toStore(info: GameInfo) =
         mutableStateOf(info.iconPath),
         mutableIntStateOf(info.gameFlags),
         mutableStateOf(info.version),
-        mutableStateOf(info.titleId)
+        mutableStateOf(info.titleId),
+        mutableStateOf(info.category)
     )
 
 private fun toInfo(store: GameInfoStore) =
@@ -90,8 +95,25 @@ private fun toInfo(store: GameInfoStore) =
         store.iconPath.value,
         store.gameFlags.intValue,
         store.version.value,
-        store.titleId.value
+        store.titleId.value,
+        store.category.value
     )
+
+// A library entry that plays directly from a raw .iso (games-folder scan), as
+// opposed to an installed copy under dev_hdd0/games. The native scan stores the
+// bare .iso path for these; installed entries store a directory path.
+private fun isIsoPath(path: String) = path.trimEnd('/').endsWith(".iso", ignoreCase = true)
+
+// How strongly an entry should represent its title when the SAME title id shows
+// up from more than one source. Higher wins; the loser is dropped from the list
+// (never from disk). A full installed game (any category except a bare "GD"
+// disc-game update) is best; a directly-playable .iso beats a lone "GD" update
+// (which is not standalone-bootable - the ISO boot applies it automatically).
+private fun entryRank(path: String, category: String?): Int = when {
+    !isIsoPath(path) && category != "GD" -> 3 // installed full game (games/ or dev_hdd0 HG)
+    isIsoPath(path) -> 2                       // playable .iso from the games folder
+    else -> 1                                  // bare "GD" update sitting in dev_hdd0
+}
 
 class GameRepository {
     private val games = mutableStateListOf<Game>()
@@ -103,6 +125,11 @@ class GameRepository {
         // scanned in place (no copying) so ISOs and folder-format games there play
         // directly. Set from Settings; empty/unset = no extra scan.
         const val GAMES_FOLDER_KEY = "games_folder_path"
+
+        // Lenient parser for the games.json cache: tolerate unknown keys so a
+        // games.json written by a NEWER build (extra GameInfo fields) still loads
+        // on an older one instead of throwing and clearing the cached list.
+        private val gamesJson = Json { ignoreUnknownKeys = true }
 
         // Compose-observable, read-only view of the games list (reading it inside a composable
         // tracks the underlying SnapshotStateList). Used by the install keep-screen-on overlay to
@@ -116,7 +143,7 @@ class GameRepository {
 
         fun save() {
             try {
-                File(RPCSX.rootDirectory + "games.json").writeText(Json.encodeToString(instance.games.map { game ->
+                File(RPCSX.rootDirectory + "games.json").writeText(gamesJson.encodeToString(instance.games.map { game ->
                     toInfo(
                         game.info
                     )
@@ -130,7 +157,7 @@ class GameRepository {
             withContext(Dispatchers.IO) {
                 try {
                     instance.games.clear()
-                    instance.games += Json.decodeFromString<Array<GameInfo>>(
+                    instance.games += gamesJson.decodeFromString<Array<GameInfo>>(
                         File(RPCSX.rootDirectory + "games.json").readText()
                     ).map { info -> Game(toStore(info)) }
                 } catch (_: NotFoundException) {
@@ -179,8 +206,9 @@ class GameRepository {
             )
             RPCSX.instance.collectGameInfo(RPCSX.rootDirectory + "/config/games", -1)
 
-            // User-chosen games folder, scanned in place (no copying). add() de-dupes by
-            // path, so a game already installed in dev_hdd0 will not double-list.
+            // User-chosen games folder, scanned in place (no copying). Scanned
+            // LAST so add()'s title-id de-dupe lets an already-installed copy win
+            // over a raw .iso of the same game (see add()), preventing doubles.
             (GeneralSettings[GAMES_FOLDER_KEY] as? String)
                 ?.takeIf { it.isNotBlank() && File(it).isDirectory }
                 ?.let { RPCSX.instance.collectGameInfo(it, -1) }
@@ -204,6 +232,38 @@ class GameRepository {
                 }
 
                 gameInfos.forEach { info ->
+                    // Cross-source de-duplication by title id: the SAME game must
+                    // never appear twice when it exists from more than one source
+                    // (installed under dev_hdd0/games AND/OR as a raw .iso in the
+                    // user's games folder). Keep only the highest-ranked copy (see
+                    // entryRank): a full installed game beats a playable .iso, which
+                    // beats a bare "GD" update. Ties keep the copy already listed.
+                    // This only prunes the on-screen list - it never touches,
+                    // moves, or deletes any file on disk.
+                    val incomingTid = info.titleId?.takeIf { it.isNotBlank() }
+                    if (incomingTid != null) {
+                        val incomingRank = entryRank(info.path, info.category)
+                        val twins = instance.games.filter { g ->
+                            g.info.path != "$" &&
+                                g.info.path != info.path &&
+                                g.info.titleId.value?.takeIf { it.isNotBlank() } == incomingTid
+                        }
+                        if (twins.isNotEmpty()) {
+                            val bestTwinRank = twins.maxOf {
+                                entryRank(it.info.path, it.info.category.value)
+                            }
+                            if (incomingRank > bestTwinRank) {
+                                // Incoming is the better representation - drop the
+                                // weaker twins (all rank below incoming) and add it.
+                                twins.forEach { instance.games.remove(it) }
+                            } else {
+                                // An equal-or-better twin already represents this
+                                // title - skip the duplicate entirely.
+                                return@forEach
+                            }
+                        }
+                    }
+
                     val existsGame = instance.games.find { x -> x.info.path == info.path }
                     if (existsGame == null) {
                         val newGame = Game(toStore(info))
@@ -222,6 +282,9 @@ class GameRepository {
                         existsGame.info.titleId.value =
                             info.titleId?.takeIf { it.isNotBlank() }
                                 ?: existsGame.info.titleId.value
+                        existsGame.info.category.value =
+                            info.category?.takeIf { it.isNotBlank() }
+                                ?: existsGame.info.category.value
                         if (progressId >= 0) {
                             existsGame.addProgress(
                                 GameProgress(
