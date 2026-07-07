@@ -81,9 +81,10 @@ fun ClankerSettingsScreen(
         mutableStateOf(GeneralSettings[net.rpcsx.GameRepository.GAMES_FOLDER_KEY] as? String)
     }
 
-    // Pick a folder on internal storage / SD card and scan it IN PLACE (no copying):
-    // ISOs and folder-format PS3 games found there play directly. Needs a real
-    // filesystem path (SAF folders that do not map to /storage are rejected).
+    // Folder picker: choose a folder on internal storage / SD card, scanned IN
+    // PLACE (no copying) so ISOs and folder-format PS3 games there play directly.
+    // Needs a real filesystem path (SAF-only folders that do not map to /storage
+    // are rejected).
     val gamesFolderPicker = androidx.activity.compose.rememberLauncherForActivityResult(
         androidx.activity.result.contract.ActivityResultContracts.OpenDocumentTree()
     ) { uri: android.net.Uri? ->
@@ -97,22 +98,61 @@ fun ClankerSettingsScreen(
             } else {
                 GeneralSettings.setValue(net.rpcsx.GameRepository.GAMES_FOLDER_KEY, real)
                 gamesFolder = real
-
-                // The native core reads the folder by raw path, which needs all-files
-                // access on Android 11+. Prompt the user to grant it if missing; the
-                // scan runs (and finds games) once granted, on the next refresh.
-                if (!net.rpcsx.utils.StorageAccess.hasAllFilesAccess(context)) {
-                    net.rpcsx.dialogs.AlertDialogQueue.showDialog(
-                        title = context.getString(R.string.games_folder_permission_title),
-                        message = context.getString(R.string.games_folder_permission_message),
-                        onConfirm = { net.rpcsx.utils.StorageAccess.requestAllFilesAccess(context) },
-                        confirmText = context.getString(R.string.games_folder_permission_grant)
-                    )
-                } else {
-                    net.rpcsx.GameRepository.queueRefresh()
-                }
+                net.rpcsx.GameRepository.queueRefresh()
             }
         }
+    }
+
+    // All-files access is the ONE permission this feature needs (the native core
+    // reads games by raw path). We launch the system access screen FOR RESULT so
+    // that when the user returns, we can continue straight into the folder picker
+    // if they granted it. The result CODE is meaningless (the settings screen sets
+    // none), so we re-check the real permission state instead.
+    val permissionLauncher = androidx.activity.compose.rememberLauncherForActivityResult(
+        androidx.activity.result.contract.ActivityResultContracts.StartActivityForResult()
+    ) {
+        if (net.rpcsx.utils.StorageAccess.hasAllFilesAccess(context)) {
+            gamesFolderPicker.launch(null)
+        }
+    }
+
+    // Android 10 (pre-R) path: there is no all-files SETTINGS screen; raw-path
+    // access comes from requestLegacyExternalStorage + a runtime READ grant.
+    val readPermLauncher = androidx.activity.compose.rememberLauncherForActivityResult(
+        androidx.activity.result.contract.ActivityResultContracts.RequestPermission()
+    ) { granted ->
+        if (granted) gamesFolderPicker.launch(null)
+    }
+
+    // Ask for all-files access FIRST, then open the folder picker - rather than
+    // picking a folder and only then asking, which read to users as a confusing
+    // second permission. If access is already granted, go straight to the picker.
+    fun chooseGamesFolder() {
+        if (net.rpcsx.utils.StorageAccess.hasAllFilesAccess(context)) {
+            gamesFolderPicker.launch(null)
+            return
+        }
+        net.rpcsx.dialogs.AlertDialogQueue.showDialog(
+            title = context.getString(R.string.games_folder_permission_title),
+            message = context.getString(R.string.games_folder_permission_message),
+            onConfirm = {
+                if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.R) {
+                    val intent = net.rpcsx.utils.StorageAccess.buildAllFilesAccessIntent(context)
+                    if (intent != null) {
+                        // Seamless path: return here on completion via permissionLauncher.
+                        runCatching { permissionLauncher.launch(intent) }
+                            .onFailure { net.rpcsx.utils.StorageAccess.requestAllFilesAccess(context) }
+                    } else {
+                        net.rpcsx.utils.StorageAccess.requestAllFilesAccess(context)
+                    }
+                } else {
+                    // Android 10: system runtime permission dialog; on grant we
+                    // continue straight into the folder picker.
+                    readPermLauncher.launch(android.Manifest.permission.READ_EXTERNAL_STORAGE)
+                }
+            },
+            confirmText = context.getString(R.string.games_folder_permission_grant)
+        )
     }
 
     ClankerScaffold(stringResource(R.string.clanker_settings), navigateBack) { contentPadding ->
@@ -123,7 +163,7 @@ fun ClankerSettingsScreen(
                     icon = { PreferenceIcon(icon = painterResource(R.drawable.ic_folder)) },
                     description = gamesFolder?.takeIf { it.isNotBlank() }
                         ?: stringResource(R.string.games_folder_description),
-                    onClick = { gamesFolderPicker.launch(null) },
+                    onClick = { chooseGamesFolder() },
                     onLongClick = {
                         // Long-press clears the games folder.
                         GeneralSettings.setValue(net.rpcsx.GameRepository.GAMES_FOLDER_KEY, null)

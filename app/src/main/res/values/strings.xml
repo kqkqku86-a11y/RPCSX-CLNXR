@@ -235,7 +235,7 @@
     <string name="games_folder_unsupported_title">Folder not supported</string>
     <string name="games_folder_unsupported_message">This folder could not be mapped to a storage path RPCSX can read directly. Pick a folder on internal storage or an SD card.</string>
     <string name="games_folder_permission_title">Storage access needed</string>
-    <string name="games_folder_permission_message">To play games directly from this folder, RPCSX needs access to all files. Grant it on the next screen, then pull down on the games list to refresh.</string>
+    <string name="games_folder_permission_message">To play games from a folder you choose, RPCSX needs permission to read your files. Grant it, then pick your folder.</string>
     <string name="games_folder_permission_grant">Grant access</string>
     <string name="remove_from_library">Remove from library</string>
 
