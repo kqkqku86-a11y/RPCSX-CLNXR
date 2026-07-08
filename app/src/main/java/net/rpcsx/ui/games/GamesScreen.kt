@@ -205,6 +205,21 @@ private fun Cover3D(
     }
 }
 
+/**
+ * Is [path] an installed copy under RPCSX's OWN storage (deletable), vs a user
+ * games-folder entry we only scan (never delete the source)? The native scanner
+ * returns weakly_canonical'd paths; on ROMs where /storage/emulated/0 canonicalizes
+ * to /data/media/0 a raw startsWith() against getExternalFilesDir() misbuckets EVERY
+ * installed game (breaking the Installed / Games-folder filter) and, worse, misfires
+ * the delete-vs-remove decision. So also match the mount-independent app-files marker
+ * "/Android/data/<pkg>/files/", which both path forms contain. A games-folder entry
+ * outside the app's own files dir matches neither test, so it is never treated as
+ * deletable - the source ISO/folder stays safe. No-op on ROMs where startsWith works.
+ */
+fun isInstalledGamePath(path: String, packageName: String): Boolean =
+    (RPCSX.rootDirectory.isNotEmpty() && path.startsWith(RPCSX.rootDirectory)) ||
+        path.contains("/Android/data/$packageName/files/")
+
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
 fun GameItem(game: Game, onConfigure: () -> Unit = {}) {
@@ -268,7 +283,7 @@ fun GameItem(game: Game, onConfigure: () -> Unit = {}) {
                     // removes the library entry + RPCSX's cache, never the source file.
                     text = {
                         Text(stringResource(
-                            if (game.info.path.startsWith(RPCSX.rootDirectory)) R.string.delete
+                            if (isInstalledGamePath(game.info.path, context.packageName)) R.string.delete
                             else R.string.remove_from_library
                         ))
                     },
@@ -276,7 +291,7 @@ fun GameItem(game: Game, onConfigure: () -> Unit = {}) {
                     onClick = {
                         menuExpanded.value = false
 
-                        val isInternal = game.info.path.startsWith(RPCSX.rootDirectory)
+                        val isInternal = isInstalledGamePath(game.info.path, context.packageName)
                         // Core caches by title id (path last-component == title id only for
                         // internal games; a games-folder entry's is the file name).
                         val cacheId = game.info.titleId.value?.takeIf { it.isNotBlank() }
@@ -572,7 +587,7 @@ fun GamesScreen(navigateToConfig: (Game) -> Unit = {}) {
             // Filter by source (installed vs games folder) and, optionally, play state.
             // "$" install placeholders bypass the filter (always shown while installing).
             val filtered = real.filter { game ->
-                val installed = game.info.path.startsWith(RPCSX.rootDirectory)
+                val installed = isInstalledGamePath(game.info.path, context.packageName)
                 val sourceOk = if (installed) GameFilter.showInstalled else GameFilter.showGamesFolder
                 val playedOk = !GameFilter.onlyPlayed || GamePlayHistory.lastPlayed(game.info.path) > 0L
                 sourceOk && playedOk
@@ -583,8 +598,13 @@ fun GamesScreen(navigateToConfig: (Game) -> Unit = {}) {
                         ?: it.info.titleId.value ?: it.info.path).lowercase()
                 }
                 GameSortMode.LAST_PLAYED -> filtered.sortedWith(
+                    // Stable sort with NO name tiebreaker: unplayed entries all tie at 0
+                    // and keep the underlying list order (install/boot recency - add()
+                    // prepends, onBoot() moves to front), so "Last played" stays visibly
+                    // distinct from alphabetical "Name" even before anything is booted. The
+                    // name tiebreaker that used to be here collapsed LAST_PLAYED into NAME
+                    // order whenever play history was empty - the "sort toggle does nothing".
                     compareByDescending<Game> { GamePlayHistory.lastPlayed(it.info.path) }
-                        .thenBy { (it.info.name.value ?: it.info.path).lowercase() }
                 )
             }
             pending + ordered
