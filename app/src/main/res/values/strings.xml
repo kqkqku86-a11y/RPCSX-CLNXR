@@ -238,6 +238,8 @@
     <string name="games_folder_permission_message">To play games from a folder you choose, RPCSX needs permission to read your files. Grant it, then pick your folder.</string>
     <string name="games_folder_permission_grant">Grant access</string>
     <string name="remove_from_library">Remove from library</string>
+    <string name="delete_installed_files">Delete installed files</string>
+    <string name="delete_installed_files_description">Permanently delete RPCSX\'s installed copy of this game, plus its cache? Games you play from your games folder are never touched — to take one of those out of the list, move its file out of the folder and rescan.</string>
     <string name="sort_games">Sort games</string>
     <string name="sort_last_played">Last played</string>
     <string name="sort_by_name">Name (A–Z)</string>

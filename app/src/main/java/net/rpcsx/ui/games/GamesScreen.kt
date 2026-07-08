@@ -277,48 +277,54 @@ fun GameItem(game: Game, onConfigure: () -> Unit = {}) {
                         onConfigure()
                     }
                 )
-                DropdownMenuItem(
-                    // A game installed into RPCSX's own storage can be fully deleted; a
-                    // games-folder entry is the user's own file we only scan, so its action
-                    // removes the library entry + RPCSX's cache, never the source file.
-                    text = {
-                        Text(stringResource(
-                            if (isInstalledGamePath(game.info.path, context.packageName)) R.string.delete
-                            else R.string.remove_from_library
-                        ))
-                    },
-                    leadingIcon = { Icon(painter = painterResource(id = R.drawable.ic_delete), contentDescription = null) },
-                    onClick = {
-                        menuExpanded.value = false
+                // Delete installed files - ONLY for a game RPCSX installed into its own
+                // storage (dev_hdd0). A games-folder / ISO entry is the user's own file we
+                // merely scan: it is NEVER removed from the library here (to take one out of
+                // the list, move its file out of the games folder and rescan) and its source
+                // is never touched - its only action is Clear Cache below. This replaces the
+                // old "Remove from library", which hid a games-folder game with no way to get
+                // it back short of re-picking the folder.
+                if (isInstalledGamePath(game.info.path, context.packageName)) {
+                    DropdownMenuItem(
+                        text = { Text(stringResource(R.string.delete_installed_files)) },
+                        leadingIcon = { Icon(painter = painterResource(id = R.drawable.ic_delete), contentDescription = null) },
+                        onClick = {
+                            menuExpanded.value = false
+                            AlertDialogQueue.showDialog(
+                                title = context.getString(R.string.delete_installed_files),
+                                message = context.getString(R.string.delete_installed_files_description),
+                                onConfirm = {
+                                    // Core caches by title id (path last-component == title id
+                                    // only for internal games).
+                                    val cacheId = game.info.titleId.value?.takeIf { it.isNotBlank() }
+                                        ?: game.info.path.trimEnd('/').substringAfterLast("/")
 
-                        val isInternal = isInstalledGamePath(game.info.path, context.packageName)
-                        // Core caches by title id (path last-component == title id only for
-                        // internal games; a games-folder entry's is the file name).
-                        val cacheId = game.info.titleId.value?.takeIf { it.isNotBlank() }
-                            ?: game.info.path.trimEnd('/').substringAfterLast("/")
+                                    val deleteProgress = ProgressRepository.create(context, context.getString(R.string.deleting_game))
+                                    game.addProgress(GameProgress(deleteProgress, GameProgressType.Compile))
+                                    ProgressRepository.onProgressEvent(deleteProgress, 1, 0L)
 
-                        val deleteProgress = ProgressRepository.create(context, context.getString(R.string.deleting_game))
-                        game.addProgress(GameProgress(deleteProgress, GameProgressType.Compile))
-                        ProgressRepository.onProgressEvent(deleteProgress, 1, 0L)
+                                    // HARD RULE: only ever delete RPCSX's OWN installed copy. The
+                                    // path is under RPCSX storage (guaranteed by isInstalledGamePath),
+                                    // so a user's source ISO/folder is never reachable here.
+                                    val path = File(game.info.path)
+                                    if (path.exists()) {
+                                        path.deleteRecursively()
+                                    }
 
-                        // HARD RULE: never delete the user's source ISO / game folder. Only
-                        // remove RPCSX's OWN installed copy, and only when the game actually
-                        // lives inside RPCSX's storage.
-                        if (isInternal) {
-                            val path = File(game.info.path)
-                            if (path.exists()) {
-                                path.deleteRecursively()
-                            }
+                                    // Files are gone -> the entry is stale and a rescan won't
+                                    // re-add it, so drop it. This is a real delete (nothing left to
+                                    // restore from), not the old "hide from library".
+                                    FileUtil.deleteCache(context, cacheId) { _ ->
+                                        ProgressRepository.onProgressEvent(deleteProgress, 100, 100)
+                                        GameRepository.remove(game)
+                                    }
+                                },
+                                confirmText = context.getString(R.string.delete),
+                                dismissText = context.getString(R.string.close)
+                            )
                         }
-
-                        // Clear RPCSX's cache for the game and drop the library entry. A
-                        // missing cache is not an error here (game may never have run).
-                        FileUtil.deleteCache(context, cacheId) { _ ->
-                            ProgressRepository.onProgressEvent(deleteProgress, 100, 100)
-                            GameRepository.remove(game)
-                        }
-                    }
-                )
+                    )
+                }
                 DropdownMenuItem(
                     text = { Text(stringResource(R.string.clear_cache)) },
                     leadingIcon = { Icon(painter = painterResource(id = R.drawable.ic_delete), contentDescription = null) },
