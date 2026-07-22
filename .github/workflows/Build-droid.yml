@@ -4,6 +4,10 @@ on:
   workflow_dispatch:
   push:
     branches: [master, main]
+    paths:
+      - 'app/**'
+      - 'build.gradle.kts'
+      - '.github/workflows/Build-droid.yml'
     
 permissions:
   contents: write
