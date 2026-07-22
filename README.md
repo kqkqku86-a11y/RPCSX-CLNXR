@@ -5,7 +5,7 @@
 <h1 align="center">RPCSX-Clanker <sub>(experimental)</sub></h1>
 
 A native Android front-end for **PlayStation 3** emulation on arm64. A continuously-updated
-fork of [RPCSX/rpcsx-ui-android](https://github.com/RPCSX/rpcsx-ui-android), [Original Fork](https://github.com/ouroboros420/rpcsx-ui-android). The actual
+fork of [RPCSX/rpcsx-ui-android](https://github.com/RPCSX/rpcsx-ui-android), and [ouroboros420/rpcsx-ui-android](https://github.com/ouroboros420/rpcsx-ui-android). The actual
 emulation is done by the separate
 [RPCSX-Clanker core](https://github.com/Ouroboros420/rpcsx), loaded at runtime.
 
